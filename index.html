@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Erro Mais Bonito</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone.js/14.8.49/Tone.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #0c0c0c, #1a1a2e, #16213e);
+            color: white;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 800px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .concept {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 25px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            font-family: inherit;
+            font-size: 1rem;
+            border-radius: 5px;
+            min-width: 120px;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn.active {
+            background: rgba(100, 200, 255, 0.3);
+            border-color: rgba(100, 200, 255, 0.7);
+            box-shadow: 0 0 15px rgba(100, 200, 255, 0.3);
+        }
+
+        .status {
+            margin: 1rem 0;
+            font-size: 1.1rem;
+            opacity: 0.8;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .visualizer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .wave {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            animation: ripple 4s ease-out infinite;
+        }
+
+        @keyframes ripple {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+        .error-note {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            animation: errorFloat 3s ease-in-out infinite;
+        }
+
+        .harmony-note {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #4ecdc4;
+            border-radius: 50%;
+            animation: harmonyFloat 4s ease-in-out infinite;
+        }
+
+        @keyframes errorFloat {
+            0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+            50% { transform: translateY(-30px) rotate(180deg); opacity: 0.9; }
+        }
+
+        @keyframes harmonyFloat {
+            0%, 100% { transform: translateY(0) scale(1); opacity: 0.4; }
+            50% { transform: translateY(-20px) scale(1.3); opacity: 0.8; }
+        }
+
+        .explanation {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            line-height: 1.5;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="visualizer" id="visualizer"></div>
+    
+    <div class="container">
+        <h1 class="title">O Erro Mais Bonito</h1>
+        
+        <div class="concept">
+            <strong>Conceito:</strong> Esta é uma composição musical que nasce do acaso e do "erro". 
+            Cada dissonância encontra sua resolução, cada nota "errada" descobre sua harmonia. 
+            <br><br>
+            <em>A beleza emerge não apesar dos erros, mas através deles.</em>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" id="startBtn">▶ Iniciar Música</button>
+            <button class="btn" id="chaosBtn">🌪️ Mais Caos</button>
+            <button class="btn" id="peaceBtn">🕊️ Mais Paz</button>
+            <button class="btn" id="stopBtn">⏹️ Parar</button>
+        </div>
+
+        <div class="status" id="status">
+            Pressione "Iniciar Música" para começar a experiência sonora
+        </div>
+
+        <div class="explanation">
+            <strong>Como funciona:</strong><br>
+            • <strong>Iniciar:</strong> Começa a composição com equilíbrio entre ordem e caos<br>
+            • <strong>Mais Caos:</strong> Adiciona mais "erros" bonitos - notas inesperadas, ritmos quebrados<br>
+            • <strong>Mais Paz:</strong> Aumenta a harmonia - acordes que resolvem as tensões<br>
+            • <strong>Visualização:</strong> Pontos vermelhos = "erros", pontos azuis = harmonias<br><br>
+            
+            <em>A filosofia: nossos erros na vida, assim como na música, podem se tornar nossos momentos mais belos quando encontram o contexto certo.</em>
+        </div>
+    </div>
+
+    <script>
+        let audioContext = null;
+        let isPlaying = false;
+        let chaosLevel = 0.5;
+        let peaceLevel = 0.5;
+        let intervals = [];
+        let noteCount = 0;
+
+        // Notas musicais em frequências
+        const notes = {
+            'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 
+            'G4': 392.00, 'A4': 440.00, 'B4': 493.88, 'C5': 523.25
+        };
+
+        const errorNotes = {
+            'Db4': 277.18, 'Eb4': 311.13, 'Gb4': 369.99, 'Ab4': 415.30, 'Bb4': 466.16
+        };
+
+        function createWave(x, y) {
+            const wave = document.createElement('div');
+            wave.className = 'wave';
+            wave.style.left = x + 'px';
+            wave.style.top = y + 'px';
+            document.getElementById('visualizer').appendChild(wave);
+            
+            setTimeout(() => {
+                if (wave.parentNode) {
+                    wave.parentNode.removeChild(wave);
+                }
+            }, 4000);
+        }
+
+        function createNote(isError = false) {
+            const note = document.createElement('div');
+            note.className = isError ? 'error-note' : 'harmony-note';
+            note.style.left = Math.random() * window.innerWidth + 'px';
+            note.style.top = Math.random() * window.innerHeight + 'px';
+            document.getElementById('visualizer').appendChild(note);
+            
+            setTimeout(() => {
+                if (note.parentNode) {
+                    note.parentNode.removeChild(note);
+                }
+            }, 3000);
+        }
+
+        function playNote(frequency, duration = 0.3, isError = false) {
+            if (!audioContext) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            oscillator.type = isError ? 'sawtooth' : 'sine';
+            
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+            
+            createNote(isError);
+            createWave(Math.random() * window.innerWidth, Math.random() * window.innerHeight);
+        }
+
+        function playChord(frequencies, duration = 0.5) {
+            frequencies.forEach(freq => {
+                playNote(freq, duration, false);
+            });
+        }
+
+        function generateMusic() {
+            if (!isPlaying) return;
+
+            const noteArray = Object.values(notes);
+            const errorArray = Object.values(errorNotes);
+            
+            // Decide se toca erro ou harmonia
+            if (Math.random() < chaosLevel) {
+                // Toca nota "errada"
+                const errorNote = errorArray[Math.floor(Math.random() * errorArray.length)];
+                playNote(errorNote, 0.2, true);
+            } else {
+                // Toca nota harmônica
+                const harmonicNote = noteArray[Math.floor(Math.random() * noteArray.length)];
+                playNote(harmonicNote, 0.4, false);
+            }
+            
+            // Ocasionalmente toca acordes (mais provável com mais paz)
+            if (Math.random() < peaceLevel * 0.3) {
+                const chord = [notes.C4, notes.E4, notes.G4];
+                setTimeout(() => {
+                    if (isPlaying) playChord(chord);
+                }, 200);
+            }
+            
+            noteCount++;
+            updateStatus();
+        }
+
+        function updateStatus() {
+            const chaosPercent = Math.round(chaosLevel * 100);
+            const peacePercent = Math.round(peaceLevel * 100);
+            
+            if (isPlaying) {
+                document.getElementById('status').innerHTML = 
+                    `🎵 Tocando... | Caos: ${chaosPercent}% | Paz: ${peacePercent}% | Notas: ${noteCount}`;
+            }
+        }
+
+        async function startMusic() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                await audioContext.resume();
+                
+                isPlaying = true;
+                noteCount = 0;
+                
+                document.getElementById('startBtn').classList.add('active');
+                document.getElementById('startBtn').textContent = '🎵 Tocando...';
+                
+                // Gera música em intervalos variados
+                const mainInterval = setInterval(() => {
+                    if (isPlaying) {
+                        generateMusic();
+                    } else {
+                        clearInterval(mainInterval);
+                    }
+                }, 800 - (chaosLevel * 400)); // Mais caos = ritmo mais irregular
+                
+                intervals.push(mainInterval);
+                updateStatus();
+                
+            } catch (error) {
+                document.getElementById('status').textContent = 'Erro ao iniciar áudio. Tente novamente.';
+                console.error('Erro de áudio:', error);
+            }
+        }
+
+        function stopMusic() {
+            isPlaying = false;
+            intervals.forEach(interval => clearInterval(interval));
+            intervals = [];
+            
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            document.getElementById('startBtn').classList.remove('active');
+            document.getElementById('startBtn').textContent = '▶ Iniciar Música';
+            document.getElementById('status').textContent = 'Música parada. O silêncio também é belo.';
+        }
+
+        function increaseChaos() {
+            chaosLevel = Math.min(1, chaosLevel + 0.2);
+            peaceLevel = Math.max(0, peaceLevel - 0.1);
+            
+            if (isPlaying) {
+                updateStatus();
+                // Toca algumas notas caóticas imediatamente
+                setTimeout(() => playNote(Object.values(errorNotes)[Math.floor(Math.random() * 5)], 0.1, true), 0);
+                setTimeout(() => playNote(Object.values(errorNotes)[Math.floor(Math.random() * 5)], 0.1, true), 100);
+            } else {
+                document.getElementById('status').textContent = `Caos aumentado para ${Math.round(chaosLevel * 100)}%. Inicie a música para ouvir.`;
+            }
+        }
+
+        function increasePeace() {
+            peaceLevel = Math.min(1, peaceLevel + 0.2);
+            chaosLevel = Math.max(0, chaosLevel - 0.1);
+            
+            if (isPlaying) {
+                updateStatus();
+                // Toca um acorde harmonioso imediatamente
+                playChord([notes.C4, notes.E4, notes.G4, notes.C5], 0.8);
+            } else {
+                document.getElementById('status').textContent = `Paz aumentada para ${Math.round(peaceLevel * 100)}%. Inicie a música para ouvir.`;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', startMusic);
+        document.getElementById('stopBtn').addEventListener('click', stopMusic);
+        document.getElementById('chaosBtn').addEventListener('click', increaseChaos);
+        document.getElementById('peaceBtn').addEventListener('click', increasePeace);
+
+        // Inicialização
+        document.getElementById('status').textContent = 'Pronto. Pressione "Iniciar Música" para começar a experiência.';
+    </script>
+</body>
+</html>
