@@ -299,7 +299,7 @@
                 <strong>Como usar:</strong><br>
                 1. <strong>Gerar Nova Música</strong> → Cria BPM e tom aleatórios.<br>
                 2. <strong>Play/Pause</strong> → Inicia ou pausa a reprodução.<br>
-                3. <strong>Instrumentos</strong> → Clique para ativar/desativar. O editor MIDI exibe apenas as notas da escala musical correta!<br>
+                3. <strong>Instrumentos</strong> → Clique para ativar/desativar. Os loops iniciam sincronizados com a música!<br>
                 4. <strong>Editor MIDI</strong> → O editor aparecerá ao lado para o instrumento selecionado.
             </div>
         </div>
@@ -320,6 +320,10 @@
                 this.currentBPM = 120; this.currentKey = 'C'; this.currentScale = 'major';
                 this.masterGainNode = null; this.currentlyEditing = null;
                 this.instruments = {}; this.midiEditors = {};
+                
+                this.globalStep = 0;
+                this.masterClockInterval = null;
+
                 this.scales = {
                     major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10],
                     dorian: [0, 2, 3, 5, 7, 9, 10], pentatonic: [0, 2, 4, 7, 9], blues: [0, 3, 5, 6, 7, 10]
@@ -365,9 +369,14 @@
                 this.currentKey = this.keys[Math.floor(Math.random() * this.keys.length)];
                 this.currentScale = Object.keys(this.scales)[Math.floor(Math.random() * Object.keys(this.scales).length)];
                 document.getElementById('currentSettings').innerHTML = `<strong>BPM:</strong> ${this.currentBPM} | <strong>Tom:</strong> ${this.currentKey} ${this.currentScale}`;
+                
+                // Reinicia o relógio mestre se ele estiver tocando para aplicar o novo BPM
+                if (this.masterClockInterval) {
+                    this.stopMasterClock();
+                    this.startMasterClock();
+                }
+
                 Object.keys(this.instruments).forEach(instName => {
-                    clearInterval(this.instruments[instName].interval);
-                    this.startInstrumentLoop(instName);
                     this.generateRandomPattern(instName, true);
                 });
                 if(this.currentlyEditing) {
@@ -504,8 +513,19 @@
                     }
                 } else {
                     const scaleNotes = this.getHarmonicFieldNotes(parseInt(document.getElementById(`octave-${instrumentName}`).value));
+                    const config = this.instrumentConfigs[instrumentName];
                     for (let beat = 0; beat < this.midiEditors[instrumentName].pattern.length; beat++) {
-                        if (Math.random() < 0.25) { 
+                        let shouldPlaceNote = false;
+                        if (config.isChord) {
+                            if (beat % 8 === 0 && Math.random() < 0.75) {
+                                shouldPlaceNote = true;
+                            }
+                        } else {
+                            if (Math.random() < 0.25) {
+                                shouldPlaceNote = true;
+                            }
+                        }
+                        if (shouldPlaceNote) {
                             this.toggleNote(instrumentName, scaleNotes[Math.floor(Math.random() * scaleNotes.length)], beat);
                         }
                     }
@@ -522,7 +542,9 @@
                 return allNotes.sort((a, b) => {
                     const octA = parseInt(a.slice(-1)); const octB = parseInt(b.slice(-1));
                     if (octA !== octB) return octB - octA;
-                    return noteOrder.indexOf(b.slice(0,-1)) - noteOrder.indexOf(a.slice(0,-1));
+                    const noteAIndex = noteOrder.indexOf(a.slice(0, -1).replace(/\d+/,''));
+                    const noteBIndex = noteOrder.indexOf(b.slice(0, -1).replace(/\d+/,''));
+                    return noteBIndex - noteAIndex;
                 });
             }
 
@@ -556,44 +578,61 @@
             async toggleInstrument(instrumentName) {
                 await this.initAudio();
                 const button = document.querySelector(`[data-instrument="${instrumentName}"]`);
-                if (this.instruments[instrumentName]) {
-                    clearInterval(this.instruments[instrumentName].interval);
+                const isActivating = !this.instruments[instrumentName];
+
+                if (isActivating) {
+                    const nextMeasureStart = Math.ceil(this.globalStep / 16) * 16;
+                    this.instruments[instrumentName] = { startStep: nextMeasureStart };
+                    button.classList.add('active');
+                    this.openMidiEditor(instrumentName);
+                    if (!this.midiEditors[instrumentName]?.pattern.some(b => Object.keys(b).length > 0)) {
+                        this.generateRandomPattern(instrumentName);
+                    }
+                } else {
                     delete this.instruments[instrumentName];
                     button.classList.remove('active');
                     if (this.currentlyEditing === instrumentName) this.closeMidiEditor();
-                } else {
-                    this.instruments[instrumentName] = {};
-                    button.classList.add('active');
-                    this.openMidiEditor(instrumentName);
-                    if(!this.midiEditors[instrumentName]?.pattern.some(b => Object.keys(b).length > 0)) {
-                        this.generateRandomPattern(instrumentName);
-                    }
-                    this.startInstrumentLoop(instrumentName);
                 }
                 this.updateStatus();
             }
 
-            startInstrumentLoop(instrumentName) {
-                let step = 0;
-                this.instruments[instrumentName].interval = setInterval(() => {
-                    if (!this.isPlaying || !this.midiEditors[instrumentName]) return;
-                    const midiEditor = this.midiEditors[instrumentName];
-                    const currentStep = step % midiEditor.patternLength;
-                    this.updatePlayhead(instrumentName, currentStep, midiEditor.patternLength);
-                    this.playMidiNotes(instrumentName, midiEditor.pattern[currentStep]);
-                    step++;
-                }, (60 / this.currentBPM) * 1000 / 4);
+            startMasterClock() {
+                if (this.masterClockInterval) return;
+                const stepDuration = (60 / this.currentBPM) * 1000 / 4; // 16th notes
+                this.masterClockInterval = setInterval(() => {
+                    if (!this.isPlaying) return;
+
+                    Object.keys(this.instruments).forEach(instrumentName => {
+                        const instrument = this.instruments[instrumentName];
+                        if (this.globalStep >= instrument.startStep) {
+                            const midiEditor = this.midiEditors[instrumentName];
+                            if (midiEditor) {
+                                const patternLength = midiEditor.patternLength;
+                                const localStep = (this.globalStep - instrument.startStep) % patternLength;
+                                this.updatePlayhead(instrumentName, localStep, patternLength);
+                                this.playMidiNotes(instrumentName, midiEditor.pattern[localStep]);
+                            }
+                        }
+                    });
+
+                    this.globalStep++;
+                }, stepDuration);
             }
 
-            updatePlayhead(instrumentName, currentBeat, patternLength) {
+            stopMasterClock() {
+                clearInterval(this.masterClockInterval);
+                this.masterClockInterval = null;
+            }
+
+            updatePlayhead(instrumentName, localStep, patternLength) {
                 const playhead = document.getElementById(`playhead-${instrumentName}`);
                 if (playhead) {
                     const grid = document.getElementById(`grid-${instrumentName}`);
                     const totalWidth = grid.scrollWidth;
-                    playhead.style.left = `${(currentBeat / patternLength) * totalWidth}px`;
+                    playhead.style.left = `${(localStep / patternLength) * totalWidth}px`;
                 }
             }
-
+            
             playMidiNotes(instrumentName, beatData) {
                 if (!beatData) return;
                 const config = this.instrumentConfigs[instrumentName];
@@ -667,14 +706,19 @@
 
             togglePlayback() {
                 this.isPlaying = !this.isPlaying;
+                if(this.isPlaying && !this.masterClockInterval) {
+                    this.globalStep = 0;
+                    this.startMasterClock();
+                }
                 const button = document.getElementById('playPauseBtn');
                 button.textContent = this.isPlaying ? '⏸ Pause' : '▶ Play';
                 button.classList.toggle('active', this.isPlaying); this.updateStatus();
             }
 
             stopAllInstruments() {
-                Object.values(this.instruments).forEach(inst => clearInterval(inst.interval));
                 this.instruments = {}; this.isPlaying = false;
+                this.globalStep = 0;
+                this.stopMasterClock();
                 document.querySelectorAll('.instrument').forEach(b => b.classList.remove('active'));
                 document.getElementById('playPauseBtn').textContent = '▶ Play';
                 document.getElementById('playPauseBtn').classList.remove('active');
