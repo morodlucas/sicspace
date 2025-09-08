@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador Musical Procedural</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone.js/14.8.49/Tone.min.js"></script>
+    <title>Gerador de Música Procedural</title>
     <style>
         body {
             margin: 0;
@@ -14,14 +13,24 @@
             font-family: 'Courier New', monospace;
             min-height: 100vh;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            overflow: hidden; /* Previne scroll geral */
+        }
+
+        .main-content {
+            flex: 1;
+            padding-right: 20px;
+            transition: padding-right 0.3s ease;
+        }
+
+        .main-content.editor-visible {
+            padding-right: 440px; /* Espaço para o painel do editor */
         }
 
         .container {
             text-align: center;
-            max-width: 900px;
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
             position: relative;
             z-index: 2;
         }
@@ -61,17 +70,33 @@
         }
 
         .main-controls .btn {
-            font-size: 1.1rem;
-            padding: 15px 30px;
-            min-width: 140px;
+            font-size: 1rem;
+            padding: 10px 20px;
+            min-width: 120px;
         }
 
         .instruments-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-            max-width: 700px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 100%;
             margin: 0 auto 2rem;
+        }
+
+        .instrument-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .instrument-container.editing {
+            background: rgba(100, 200, 255, 0.15);
+            border-color: rgba(100, 200, 255, 0.5);
+            box-shadow: 0 0 15px rgba(100, 200, 255, 0.2);
         }
 
         .btn {
@@ -87,6 +112,7 @@
             border-radius: 8px;
             position: relative;
             overflow: hidden;
+            width: 100%;
         }
 
         .btn:hover {
@@ -101,158 +127,233 @@
             box-shadow: 0 0 15px rgba(100, 200, 255, 0.3);
         }
 
-        .btn.playing::before {
-            content: '';
-            position: absolute;
+        .midi-editor-panel {
+            position: fixed;
             top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            animation: shimmer 2s infinite;
+            right: -420px;
+            width: 420px;
+            height: 100vh;
+            background: #101020;
+            padding: 20px;
+            box-shadow: -10px 0 25px rgba(0, 0, 0, 0.5);
+            transition: right 0.3s ease;
+            z-index: 100;
+            border-left: 1px solid rgba(255, 255, 255, 0.2);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
         }
 
-        @keyframes shimmer {
-            0% { left: -100%; }
-            100% { left: 100%; }
+        .midi-editor-panel.visible {
+            right: 0;
+        }
+        
+        .midi-editor-panel h3 {
+            margin-top: 10px;
+            color: #a5d8ff;
+            flex-shrink: 0;
+        }
+        
+        #closeEditorBtn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        #closeEditorBtn:hover {
+            opacity: 1;
         }
 
-        .status {
-            margin: 1rem 0;
-            font-size: 1rem;
-            opacity: 0.8;
-            min-height: 40px;
+        .midi-controls {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .midi-controls label { font-size: 0.9rem; opacity: 0.8; text-align: right; }
+        .midi-controls input, .midi-controls select {
+            background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white; padding: 5px 8px; border-radius: 4px; font-family: inherit; font-size: 0.85rem; width: 100%;
+        }
+
+        .piano-roll-container {
+            display: flex;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+
+        .piano-keys {
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        
+        .note-label {
+            width: 60px;
+            height: 20px; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.7rem;
+            flex-shrink: 0;
+            box-sizing: border-box;
             display: flex;
             align-items: center;
             justify-content: center;
         }
+        .white-key { background: #fff; color: #000; }
+        .black-key { background: #333; color: #fff; border-bottom: 1px solid #555; }
+        .drum-key { background: rgba(255, 255, 255, 0.05); height: 40px; }
 
-        .visualizer {
-            position: fixed;
+        .note-grid-wrapper {
+            flex-grow: 1;
+            overflow-x: auto;
+            position: relative;
+        }
+        
+        .note-grid {
+            display: flex;
+            flex-direction: row;
+            position: relative;
+        }
+
+        .beat-column {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .beat-column.beat-marker {
+            border-left: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .note-cell {
+            width: 35px;
+            height: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: background-color 0.1s ease;
+            box-sizing: border-box;
+        }
+        .drum-column .note-cell {
+            height: 40px;
+        }
+        
+        .note-cell:hover { background: rgba(255, 255, 255, 0.1); }
+        .note-cell.active { background: rgba(100, 200, 255, 0.6); box-shadow: inset 0 0 10px rgba(100, 200, 255, 0.3); }
+
+        .playhead {
+            position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
+            width: 2px;
             height: 100%;
-            z-index: 1;
+            background: #ff4444;
+            z-index: 10;
+            transition: left 0.05s linear;
+            box-shadow: 0 0 10px #ff4444;
             pointer-events: none;
-            overflow: hidden;
         }
 
-        .instrument-particle {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            animation: float 3s ease-in-out infinite;
+        .pattern-controls {
+            display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap; flex-shrink: 0;
         }
-
-        .guitar { background: #ff6b6b; box-shadow: 0 0 10px #ff6b6b; }
-        .drums { background: #ffd700; box-shadow: 0 0 10px #ffd700; }
-        .bass { background: #4ecdc4; box-shadow: 0 0 10px #4ecdc4; }
-        .synth { background: #45b7d1; box-shadow: 0 0 10px #45b7d1; }
-        .flute { background: #96ceb4; box-shadow: 0 0 10px #96ceb4; }
-        .choir { background: #f4a6d7; box-shadow: 0 0 10px #f4a6d7; }
-        .piano { background: #dda0dd; box-shadow: 0 0 10px #dda0dd; }
-        .strings { background: #ffa07a; box-shadow: 0 0 10px #ffa07a; }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
-            50% { transform: translateY(-25px) scale(1.2); opacity: 0.9; }
+        .pattern-btn {
+            padding: 6px 12px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white; cursor: pointer; border-radius: 4px; font-size: 0.8rem; transition: all 0.2s ease;
         }
-
-        .wave {
-            position: absolute;
-            border: 2px solid rgba(255, 255, 255, 0.15);
-            border-radius: 50%;
-            animation: ripple 5s ease-out infinite;
-        }
-
-        @keyframes ripple {
-            0% { transform: scale(0); opacity: 0.8; }
-            100% { transform: scale(6); opacity: 0; }
-        }
-
+        .pattern-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .status { margin: 1rem 0; font-size: 1rem; opacity: 0.8; min-height: 40px; }
         .info {
-            margin-top: 2rem;
-            font-size: 0.85rem;
-            opacity: 0.6;
-            line-height: 1.4;
+            margin-top: 2rem; font-size: 0.85rem; opacity: 0.6; line-height: 1.4;
+            max-width: 800px; margin-left: auto; margin-right: auto;
         }
     </style>
 </head>
 <body>
-    <div class="visualizer" id="visualizer"></div>
-    
-    <div class="container">
-        <h1 class="title">🎵 Gerador Musical Procedural</h1>
-        <p class="subtitle">Crie música única a cada sessão com algoritmos generativos</p>
-        
-        <div class="song-info" id="songInfo">
-            <strong>🎼 Configuração Atual:</strong><br>
-            <span id="currentSettings">Pressione "Gerar Nova Música" para começar</span>
-        </div>
-        
-        <div class="main-controls controls">
-            <button class="btn" id="generateBtn">🎲 Gerar Nova Música</button>
-            <button class="btn" id="playPauseBtn">▶ Reproduzir</button>
-            <button class="btn" id="stopBtn">⏹ Parar Tudo</button>
-        </div>
-
-        <div class="instruments-grid">
-            <button class="btn instrument" data-instrument="guitar">🎸 Guitarra</button>
-            <button class="btn instrument" data-instrument="drums">🥁 Bateria</button>
-            <button class="btn instrument" data-instrument="bass">🎯 Baixo</button>
-            <button class="btn instrument" data-instrument="synth">🎹 Sintetizador</button>
-            <button class="btn instrument" data-instrument="flute">🪈 Flauta</button>
-            <button class="btn instrument" data-instrument="choir">👥 Coral</button>
-            <button class="btn instrument" data-instrument="piano">🎹 Piano</button>
-            <button class="btn instrument" data-instrument="strings">🎻 Cordas</button>
-        </div>
-
-        <div class="status" id="status">
-            Clique em "Gerar Nova Música" para criar uma base musical aleatória
-        </div>
-
-        <div class="info">
-            <strong>Como usar:</strong><br>
-            1. <strong>Gerar Nova Música</strong> → Cria BPM e tonalidade aleatórios<br>
-            2. <strong>Reproduzir</strong> → Inicia/pausa a reprodução<br>
-            3. <strong>Instrumentos</strong> → Cada um cria uma melodia única em loop<br>
-            4. <strong>Combine</strong> diferentes instrumentos para criar arranjos complexos!
+    <div class="main-content" id="mainContent">
+        <div class="container">
+            <h1 class="title">🎵 Gerador de Música Procedural</h1>
+            <p class="subtitle">Crie músicas únicas com composição algorítmica e edição MIDI</p>
+            <div class="song-info" id="songInfo">
+                <strong>🎼 Configuração Atual:</strong><br>
+                <span id="currentSettings">Pressione "Gerar Nova Música" para começar</span>
+            </div>
+            <div class="main-controls controls">
+                <button class="btn" id="generateBtn">🎲 Gerar Nova Música</button>
+                <button class="btn" id="playPauseBtn">▶ Play</button>
+                <button class="btn" id="stopBtn">⏹ Stop</button>
+            </div>
+            <div class="instruments-grid" id="instrumentsGrid"></div>
+            <div class="status" id="status">Clique em "Gerar Nova Música" para criar uma base musical aleatória</div>
+            <div class="info">
+                <strong>Como usar:</strong><br>
+                1. <strong>Gerar Nova Música</strong> → Cria BPM e tom aleatórios.<br>
+                2. <strong>Play/Pause</strong> → Inicia ou pausa a reprodução.<br>
+                3. <strong>Instrumentos</strong> → Clique para ativar/desativar. O editor MIDI exibe apenas as notas da escala musical correta!<br>
+                4. <strong>Editor MIDI</strong> → O editor aparecerá ao lado para o instrumento selecionado.
+            </div>
         </div>
     </div>
+
+    <div class="midi-editor-panel" id="midiEditorPanel">
+        <button id="closeEditorBtn">&times;</button>
+        <div id="editor-content" style="display: flex; flex-direction: column; flex-grow: 1;">
+            <h3>Selecione um instrumento ativo para editar seu padrão.</h3>
+        </div>
+    </div>
+
 
     <script>
         class ProceduralMusicGenerator {
             constructor() {
-                this.audioContext = null;
-                this.isPlaying = false;
-                this.currentBPM = 120;
-                this.currentKey = 'C';
-                this.currentScale = 'major';
-                this.masterGainNode = null;
-                
-                this.instruments = {};
+                this.audioContext = null; this.isPlaying = false;
+                this.currentBPM = 120; this.currentKey = 'C'; this.currentScale = 'major';
+                this.masterGainNode = null; this.currentlyEditing = null;
+                this.instruments = {}; this.midiEditors = {};
                 this.scales = {
-                    major: [0, 2, 4, 5, 7, 9, 11],
-                    minor: [0, 2, 3, 5, 7, 8, 10],
-                    dorian: [0, 2, 3, 5, 7, 9, 10],
-                    pentatonic: [0, 2, 4, 7, 9],
-                    blues: [0, 3, 5, 6, 7, 10]
+                    major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10],
+                    dorian: [0, 2, 3, 5, 7, 9, 10], pentatonic: [0, 2, 4, 7, 9], blues: [0, 3, 5, 6, 7, 10]
                 };
-                
                 this.keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-                this.scaleNames = Object.keys(this.scales);
                 
-                this.setupEventListeners();
+                this.instrumentConfigs = {
+                    piano:   { name: '🎹 Piano',       synthType: 'triangle', duration: 0.8, isChord: false },
+                    synth:   { name: '🎹 Sintetizador',  synthType: 'sawtooth', duration: 1,   isChord: false },
+                    guitar:  { name: '🎸 Guitarra',     synthType: 'triangle', duration: 0.6, isChord: false },
+                    bass:    { name: '🎯 Baixo',        synthType: 'sine',     duration: 0.8, isChord: false },
+                    strings: { name: '🎻 Cordas',      synthType: 'sawtooth', duration: 1.5, isChord: true  },
+                    choir:   { name: '👥 Coro',        synthType: 'sine',     duration: 2,   isChord: true  },
+                    flute:   { name: '🪈 Flauta',      synthType: 'sine',     duration: 1,   isChord: false },
+                    drums:   { name: '🥁 Bateria' },
+                };
+
+                this.setupUI(); this.setupEventListeners(); this.generateNewSong();
+            }
+
+            setupUI() {
+                const grid = document.getElementById('instrumentsGrid');
+                Object.keys(this.instrumentConfigs).forEach(key => {
+                    const container = document.createElement('div');
+                    container.className = 'instrument-container';
+                    container.innerHTML = `<button class="btn instrument" data-instrument="${key}">${this.instrumentConfigs[key].name}</button>`;
+                    grid.appendChild(container);
+                });
             }
 
             async initAudio() {
-                if (!this.audioContext) {
+                if (!this.audioContext || this.audioContext.state === 'closed') {
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     await this.audioContext.resume();
-                    
-                    // Master gain para controlar volume geral
                     this.masterGainNode = this.audioContext.createGain();
                     this.masterGainNode.connect(this.audioContext.destination);
                     this.masterGainNode.gain.value = 0.3;
@@ -260,448 +361,350 @@
             }
 
             generateNewSong() {
-                // Gera configurações aleatórias
-                this.currentBPM = 80 + Math.floor(Math.random() * 60); // 80-140 BPM
+                this.currentBPM = 80 + Math.floor(Math.random() * 60);
                 this.currentKey = this.keys[Math.floor(Math.random() * this.keys.length)];
-                this.currentScale = this.scaleNames[Math.floor(Math.random() * this.scaleNames.length)];
-                
-                // Para todos instrumentos
-                this.stopAllInstruments();
-                
-                // Atualiza display
-                document.getElementById('currentSettings').innerHTML = 
-                    `<strong>BPM:</strong> ${this.currentBPM} | <strong>Tom:</strong> ${this.currentKey} ${this.currentScale} | <strong>Compasso:</strong> 4/4`;
-                
-                document.getElementById('status').textContent = 
-                    `Nova música gerada! BPM: ${this.currentBPM}, Tom: ${this.currentKey} ${this.currentScale}`;
-            }
-
-            getScaleNotes(octave = 4) {
-                const baseFreq = 440; // A4
-                const semitoneRatio = Math.pow(2, 1/12);
-                const keyOffset = this.keys.indexOf(this.currentKey);
-                const notes = [];
-                
-                this.scales[this.currentScale].forEach(interval => {
-                    const semitonesFromA4 = (octave - 4) * 12 + interval + keyOffset - 9; // A4 é index 9
-                    const frequency = baseFreq * Math.pow(semitoneRatio, semitonesFromA4);
-                    notes.push(frequency);
+                this.currentScale = Object.keys(this.scales)[Math.floor(Math.random() * Object.keys(this.scales).length)];
+                document.getElementById('currentSettings').innerHTML = `<strong>BPM:</strong> ${this.currentBPM} | <strong>Tom:</strong> ${this.currentKey} ${this.currentScale}`;
+                Object.keys(this.instruments).forEach(instName => {
+                    clearInterval(this.instruments[instName].interval);
+                    this.startInstrumentLoop(instName);
+                    this.generateRandomPattern(instName, true);
                 });
-                
-                return notes;
-            }
-
-            createParticle(instrumentType) {
-                const particle = document.createElement('div');
-                particle.className = `instrument-particle ${instrumentType}`;
-                particle.style.left = Math.random() * window.innerWidth + 'px';
-                particle.style.top = Math.random() * window.innerHeight + 'px';
-                particle.style.animationDelay = Math.random() * 3 + 's';
-                document.getElementById('visualizer').appendChild(particle);
-                
-                setTimeout(() => {
-                    if (particle.parentNode) {
-                        particle.parentNode.removeChild(particle);
-                    }
-                }, 3000);
-            }
-
-            createWave() {
-                const wave = document.createElement('div');
-                wave.className = 'wave';
-                wave.style.left = Math.random() * window.innerWidth + 'px';
-                wave.style.top = Math.random() * window.innerHeight + 'px';
-                wave.style.width = (50 + Math.random() * 100) + 'px';
-                wave.style.height = wave.style.width;
-                document.getElementById('visualizer').appendChild(wave);
-                
-                setTimeout(() => {
-                    if (wave.parentNode) {
-                        wave.parentNode.removeChild(wave);
-                    }
-                }, 5000);
-            }
-
-            async playNote(frequency, duration, synthType, gainValue = 0.1) {
-                if (!this.audioContext) return;
-
-                const oscillator = this.audioContext.createOscillator();
-                const gainNode = this.audioContext.createGain();
-                const filter = this.audioContext.createBiquadFilter();
-                
-                oscillator.connect(filter);
-                filter.connect(gainNode);
-                gainNode.connect(this.masterGainNode);
-                
-                oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-                oscillator.type = synthType;
-                
-                // Configurações do filtro baseadas no tipo
-                filter.type = 'lowpass';
-                filter.frequency.value = synthType === 'sawtooth' ? 800 : 2000;
-                
-                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(gainValue, this.audioContext.currentTime + 0.01);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
-                
-                oscillator.start(this.audioContext.currentTime);
-                oscillator.stop(this.audioContext.currentTime + duration);
-            }
-
-            // Gerador de patterns únicos para cada instrumento
-            generatePattern(length = 16) {
-                const pattern = [];
-                for (let i = 0; i < length; i++) {
-                    pattern.push(Math.random() > 0.7 ? 1 : 0);
+                if(this.currentlyEditing) {
+                    this.createPianoRoll(this.currentlyEditing);
                 }
-                return pattern;
+                document.getElementById('status').textContent = `Nova música gerada! BPM: ${this.currentBPM}, Tom: ${this.currentKey} ${this.currentScale}`;
             }
 
-            generateMelody(length = 8) {
-                const melody = [];
-                const notes = this.getScaleNotes(4);
+            openMidiEditor(instrumentName) {
+                this.currentlyEditing = instrumentName;
+                const panel = document.getElementById('midiEditorPanel');
+                const content = document.getElementById('editor-content');
+                document.querySelectorAll('.instrument-container').forEach(c => c.classList.remove('editing'));
+                document.querySelector(`[data-instrument="${instrumentName}"]`).closest('.instrument-container').classList.add('editing');
+                content.innerHTML = `
+                    <h3>Editando: ${this.instrumentConfigs[instrumentName].name}</h3>
+                    <div class="midi-controls">
+                        <label>Duração:</label>
+                        <select id="length-${instrumentName}"><option value="16">16</option><option value="32" selected>32</option></select>
+                        ${instrumentName !== 'drums' ? `<label>Oitava:</label><select id="octave-${instrumentName}"><option>2</option><option>3</option><option selected>4</option><option>5</option></select>` : ''}
+                        <label>Volume:</label>
+                        <input type="range" id="volume-${instrumentName}" min="0" max="1" step="0.01" value="0.5">
+                    </div>
+                    <div class="piano-roll-container" id="roll-${instrumentName}"></div>
+                    <div class="pattern-controls">
+                        <button class="pattern-btn" onclick="musicGen.generateRandomPattern('${instrumentName}', true)">🎲 Aleatório</button>
+                        <button class="pattern-btn" onclick="musicGen.clearPattern('${instrumentName}')">🗑️ Limpar</button>
+                        ${instrumentName !== 'drums' ? `<button class="pattern-btn" onclick="musicGen.createArpeggio('${instrumentName}')">🎵 Arpejo</button>` : ''}
+                    </div>`;
+                this.createPianoRoll(instrumentName);
+                panel.classList.add('visible');
+                document.getElementById('mainContent').classList.add('editor-visible');
+                document.getElementById(`length-${instrumentName}`).addEventListener('change', () => this.createPianoRoll(instrumentName));
+                if (document.getElementById(`octave-${instrumentName}`)) {
+                    document.getElementById(`octave-${instrumentName}`).addEventListener('change', () => this.createPianoRoll(instrumentName));
+                }
+            }
+
+            closeMidiEditor() {
+                if(this.currentlyEditing) {
+                    document.querySelector(`[data-instrument="${this.currentlyEditing}"]`).closest('.instrument-container').classList.remove('editing');
+                }
+                this.currentlyEditing = null;
+                document.getElementById('midiEditorPanel').classList.remove('visible');
+                document.getElementById('mainContent').classList.remove('editor-visible');
+            }
+
+            createPianoRoll(instrumentName) {
+                const rollContainer = document.getElementById(`roll-${instrumentName}`);
+                if (!rollContainer) return;
+
+                const patternLength = parseInt(document.getElementById(`length-${instrumentName}`).value);
+                const isDrums = instrumentName === 'drums';
                 
-                for (let i = 0; i < length; i++) {
-                    if (Math.random() > 0.3) {
-                        melody.push(notes[Math.floor(Math.random() * notes.length)]);
-                    } else {
-                        melody.push(null); // Pausa
+                const notes = isDrums 
+                    ? ['Hi-Hat', 'Snare', 'Kick'] 
+                    : this.getHarmonicFieldNotes(parseInt(document.getElementById(`octave-${instrumentName}`).value));
+
+                let keysHtml = '<div class="piano-keys">';
+                notes.forEach(noteName => {
+                    const keyClass = isDrums ? 'drum-key' : (noteName.includes('#') ? 'black-key' : 'white-key');
+                    keysHtml += `<div class="note-label ${keyClass}">${noteName}</div>`;
+                });
+                keysHtml += '</div>';
+
+                let gridHtml = `<div class="note-grid-wrapper"><div class="note-grid" id="grid-${instrumentName}">`;
+                for (let beat = 0; beat < patternLength; beat++) {
+                    const beatMarkerClass = (beat % 4 === 0) ? ' beat-marker' : '';
+                    const drumColumnClass = isDrums ? ' drum-column' : '';
+                    gridHtml += `<div class="beat-column${beatMarkerClass}${drumColumnClass}">`;
+                    notes.forEach(noteName => {
+                        gridHtml += `<div class="note-cell" data-instrument="${instrumentName}" data-note="${noteName}" data-beat="${beat}"></div>`;
+                    });
+                    gridHtml += `</div>`;
+                }
+                gridHtml += `</div><div class="playhead" id="playhead-${instrumentName}"></div></div>`;
+
+                rollContainer.innerHTML = keysHtml + gridHtml;
+
+                if (!this.midiEditors[instrumentName] || this.midiEditors[instrumentName].patternLength !== patternLength) {
+                    this.midiEditors[instrumentName] = {
+                        pattern: Array.from({ length: patternLength }, () => ({})),
+                        patternLength: patternLength
+                    };
+                }
+                this.updatePianoRollVisuals(instrumentName);
+                rollContainer.querySelectorAll('.note-cell').forEach(cell => {
+                    cell.addEventListener('click', (e) => {
+                        this.toggleNote(instrumentName, e.target.dataset.note, parseInt(e.target.dataset.beat));
+                    });
+                });
+            }
+
+            updatePianoRollVisuals(instrumentName) {
+                const pattern = this.midiEditors[instrumentName]?.pattern;
+                if(!pattern) return;
+                document.querySelectorAll(`[data-instrument="${instrumentName}"].note-cell.active`).forEach(c => c.classList.remove('active'));
+                pattern.forEach((beatData, beat) => {
+                    Object.keys(beatData).forEach(note => {
+                        if (beatData[note]) {
+                            const cell = document.querySelector(`[data-instrument="${instrumentName}"][data-note="${note}"][data-beat="${beat}"]`);
+                            if (cell) cell.classList.add('active');
+                        }
+                    });
+                });
+            }
+
+            toggleNote(instrumentName, noteName, beat) {
+                const pattern = this.midiEditors[instrumentName].pattern;
+                pattern[beat][noteName] = !pattern[beat][noteName];
+                document.querySelector(`[data-instrument="${instrumentName}"][data-note="${noteName}"][data-beat="${beat}"]`).classList.toggle('active');
+                if (pattern[beat][noteName] && instrumentName !== 'drums') {
+                    this.playNote(this.noteToFrequency(noteName), 0.2, 'sine', 0.2);
+                }
+            }
+
+            noteToFrequency(noteName) {
+                const noteMap = {'C':0, 'C#':1, 'D':2, 'D#':3, 'E':4, 'F':5, 'F#':6, 'G':7, 'G#':8, 'A':9, 'A#':10, 'B':11};
+                const octave = parseInt(noteName.match(/\d+/)[0]);
+                const note = noteName.replace(/\d+/, '');
+                const semitonesFromA4 = (octave - 4) * 12 + noteMap[note] - noteMap['A'];
+                return 440 * Math.pow(2, semitonesFromA4 / 12);
+            }
+
+            generateRandomPattern(instrumentName, forceRecreate = false) {
+                if (!this.midiEditors[instrumentName] || forceRecreate) this.createPianoRoll(instrumentName);
+                this.clearPattern(instrumentName);
+                if (instrumentName === 'drums') {
+                    const pattern = this.midiEditors.drums.pattern;
+                    for (let beat = 0; beat < pattern.length; beat++) {
+                        if (beat % 4 === 0) this.toggleNote('drums', 'Kick', beat);
+                        if (beat % 8 === 4) this.toggleNote('drums', 'Snare', beat);
+                        if (Math.random() < 0.7) this.toggleNote('drums', 'Hi-Hat', beat);
+                    }
+                } else {
+                    const scaleNotes = this.getHarmonicFieldNotes(parseInt(document.getElementById(`octave-${instrumentName}`).value));
+                    for (let beat = 0; beat < this.midiEditors[instrumentName].pattern.length; beat++) {
+                        if (Math.random() < 0.25) { 
+                            this.toggleNote(instrumentName, scaleNotes[Math.floor(Math.random() * scaleNotes.length)], beat);
+                        }
                     }
                 }
-                return melody;
+                this.updatePianoRollVisuals(instrumentName);
+            }
+
+            getHarmonicFieldNotes(startOctave) {
+                let allNotes = [];
+                for (let oct = startOctave -1; oct <= startOctave + 1; oct++) {
+                    allNotes.push(...this.getScaleNoteNames(oct));
+                }
+                const noteOrder = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                return allNotes.sort((a, b) => {
+                    const octA = parseInt(a.slice(-1)); const octB = parseInt(b.slice(-1));
+                    if (octA !== octB) return octB - octA;
+                    return noteOrder.indexOf(b.slice(0,-1)) - noteOrder.indexOf(a.slice(0,-1));
+                });
+            }
+
+            getScaleNoteNames(octave) {
+                const scaleIntervals = this.scales[this.currentScale];
+                const keyOffset = this.keys.indexOf(this.currentKey);
+                const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                const notesInScale = [];
+                scaleIntervals.forEach(interval => {
+                    const noteIndex = (keyOffset + interval) % 12;
+                    const currentOctave = octave + Math.floor((keyOffset + interval) / 12);
+                    notesInScale.push(`${noteNames[noteIndex]}${currentOctave}`);
+                });
+                return notesInScale;
+            }
+
+            clearPattern(instrumentName) {
+                if (!this.midiEditors[instrumentName]) return;
+                this.midiEditors[instrumentName].pattern.forEach(b => Object.keys(b).forEach(k => delete b[k]));
+                this.updatePianoRollVisuals(instrumentName);
+            }
+
+            createArpeggio(instrumentName) {
+                this.clearPattern(instrumentName);
+                const scaleNotes = this.getHarmonicFieldNotes(parseInt(document.getElementById(`octave-${instrumentName}`).value)).reverse();
+                for (let beat = 0; beat < 16; beat++) {
+                    this.toggleNote(instrumentName, scaleNotes[beat % scaleNotes.length], beat);
+                }
             }
 
             async toggleInstrument(instrumentName) {
                 await this.initAudio();
-                
+                const button = document.querySelector(`[data-instrument="${instrumentName}"]`);
                 if (this.instruments[instrumentName]) {
-                    // Para o instrumento
                     clearInterval(this.instruments[instrumentName].interval);
                     delete this.instruments[instrumentName];
-                    
-                    document.querySelector(`[data-instrument="${instrumentName}"]`).classList.remove('active', 'playing');
+                    button.classList.remove('active');
+                    if (this.currentlyEditing === instrumentName) this.closeMidiEditor();
                 } else {
-                    // Inicia o instrumento
-                    const instrumentConfig = this.createInstrumentConfig(instrumentName);
-                    this.instruments[instrumentName] = instrumentConfig;
-                    
-                    const button = document.querySelector(`[data-instrument="${instrumentName}"]`);
-                    button.classList.add('active', 'playing');
-                    
-                    this.startInstrumentLoop(instrumentName, instrumentConfig);
+                    this.instruments[instrumentName] = {};
+                    button.classList.add('active');
+                    this.openMidiEditor(instrumentName);
+                    if(!this.midiEditors[instrumentName]?.pattern.some(b => Object.keys(b).length > 0)) {
+                        this.generateRandomPattern(instrumentName);
+                    }
+                    this.startInstrumentLoop(instrumentName);
                 }
-                
                 this.updateStatus();
             }
 
-            createInstrumentConfig(instrumentName) {
-                const beatDuration = (60 / this.currentBPM) * 1000;
-                
-                switch (instrumentName) {
-                    case 'guitar':
-                        return {
-                            pattern: this.generatePattern(16),
-                            melody: this.generateMelody(8),
-                            synthType: 'sawtooth',
-                            duration: 0.3,
-                            gain: 0.08,
-                            beatDivision: 4 // 16th notes
-                        };
-                    
-                    case 'bass':
-                        return {
-                            pattern: this.generatePattern(4),
-                            melody: this.getScaleNotes(2), // Oitava mais baixa
-                            synthType: 'sine',
-                            duration: 0.8,
-                            gain: 0.15,
-                            beatDivision: 1 // quarter notes
-                        };
-                    
-                    case 'synth':
-                        return {
-                            pattern: this.generatePattern(8),
-                            melody: this.generateMelody(12),
-                            synthType: 'square',
-                            duration: 0.5,
-                            gain: 0.06,
-                            beatDivision: 2
-                        };
-                    
-                    case 'flute':
-                        return {
-                            pattern: this.generatePattern(12),
-                            melody: this.getScaleNotes(5), // Oitava alta
-                            synthType: 'sine',
-                            duration: 0.6,
-                            gain: 0.05,
-                            beatDivision: 3
-                        };
-                    
-                    case 'choir':
-                        return {
-                            pattern: this.generatePattern(4),
-                            melody: this.getScaleNotes(4),
-                            synthType: 'sine',
-                            duration: 2.0,
-                            gain: 0.04,
-                            beatDivision: 1,
-                            isChord: true // Toca acordes
-                        };
-                    
-                    case 'piano':
-                        return {
-                            pattern: this.generatePattern(16),
-                            melody: this.generateMelody(16),
-                            synthType: 'triangle',
-                            duration: 0.4,
-                            gain: 0.07,
-                            beatDivision: 4
-                        };
-                    
-                    case 'strings':
-                        return {
-                            pattern: this.generatePattern(8),
-                            melody: this.getScaleNotes(4),
-                            synthType: 'sawtooth',
-                            duration: 1.5,
-                            gain: 0.03,
-                            beatDivision: 2
-                        };
-                    
-                    default: // drums
-                        return {
-                            pattern: this.generatePattern(16),
-                            synthType: 'drums',
-                            beatDivision: 4
-                        };
-                }
-            }
-
-            startInstrumentLoop(instrumentName, config) {
-                const beatDuration = (60 / this.currentBPM) * 1000 / config.beatDivision;
+            startInstrumentLoop(instrumentName) {
                 let step = 0;
-                
-                config.interval = setInterval(() => {
-                    if (!this.isPlaying) return;
-                    
-                    if (instrumentName === 'drums') {
-                        this.playDrumPattern(config, step);
-                    } else {
-                        this.playInstrumentNote(instrumentName, config, step);
-                    }
-                    
-                    step = (step + 1) % config.pattern.length;
-                }, beatDuration);
+                this.instruments[instrumentName].interval = setInterval(() => {
+                    if (!this.isPlaying || !this.midiEditors[instrumentName]) return;
+                    const midiEditor = this.midiEditors[instrumentName];
+                    const currentStep = step % midiEditor.patternLength;
+                    this.updatePlayhead(instrumentName, currentStep, midiEditor.patternLength);
+                    this.playMidiNotes(instrumentName, midiEditor.pattern[currentStep]);
+                    step++;
+                }, (60 / this.currentBPM) * 1000 / 4);
             }
 
-            playInstrumentNote(instrumentName, config, step) {
-                if (!config.pattern[step]) return;
-                
-                this.createParticle(instrumentName);
-                
-                if (config.isChord && instrumentName === 'choir') {
-                    // Toca acorde
-                    const chord = [config.melody[0], config.melody[2], config.melody[4]];
-                    chord.forEach((freq, i) => {
-                        setTimeout(() => {
-                            this.playNote(freq, config.duration, config.synthType, config.gain);
-                        }, i * 20);
+            updatePlayhead(instrumentName, currentBeat, patternLength) {
+                const playhead = document.getElementById(`playhead-${instrumentName}`);
+                if (playhead) {
+                    const grid = document.getElementById(`grid-${instrumentName}`);
+                    const totalWidth = grid.scrollWidth;
+                    playhead.style.left = `${(currentBeat / patternLength) * totalWidth}px`;
+                }
+            }
+
+            playMidiNotes(instrumentName, beatData) {
+                if (!beatData) return;
+                const config = this.instrumentConfigs[instrumentName];
+                const volume = parseFloat(document.getElementById(`volume-${instrumentName}`)?.value) || 0.5;
+
+                if (instrumentName === 'drums') {
+                    if (beatData['Kick']) this.createKick(volume);
+                    if (beatData['Snare']) this.createSnare(volume);
+                    if (beatData['Hi-Hat']) this.createHiHat(volume);
+                } else {
+                    Object.keys(beatData).forEach(noteName => {
+                        if (beatData[noteName]) {
+                            const rootFreq = this.noteToFrequency(noteName);
+                            this.playNote(rootFreq, config.duration, config.synthType, 0.15 * volume);
+                            if (config.isChord) {
+                                const thirdInterval = this.currentScale.includes('minor') ? 3 : 4;
+                                const thirdFreq = rootFreq * Math.pow(2, thirdInterval / 12);
+                                const fifthFreq = rootFreq * Math.pow(2, 7 / 12);
+                                this.playNote(thirdFreq, config.duration, config.synthType, 0.1 * volume);
+                                this.playNote(fifthFreq, config.duration, config.synthType, 0.1 * volume);
+                            }
+                        }
                     });
-                } else {
-                    // Toca nota simples
-                    const noteIndex = step % config.melody.length;
-                    if (config.melody[noteIndex]) {
-                        this.playNote(config.melody[noteIndex], config.duration, config.synthType, config.gain);
-                    }
-                }
-                
-                if (Math.random() < 0.3) {
-                    this.createWave();
                 }
             }
-
-            playDrumPattern(config, step) {
-                if (!config.pattern[step]) return;
-                
-                this.createParticle('drums');
-                this.createDrumSound(step % 4);
-            }
-
-            createDrumSound(beat) {
+            
+            async playNote(frequency, duration, type, gainValue) {
                 if (!this.audioContext) return;
-                
-                if (beat === 0 || beat === 2) {
-                    // Kick
-                    this.createKick();
-                } else if (beat === 1 || beat === 3) {
-                    // Snare
-                    this.createSnare();
-                } else {
-                    // Hi-hat
-                    this.createHiHat();
-                }
+                const osc = this.audioContext.createOscillator(); const gain = this.audioContext.createGain();
+                osc.connect(gain); gain.connect(this.masterGainNode); osc.type = type;
+                osc.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+                gain.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gain.gain.linearRampToValueAtTime(gainValue, this.audioContext.currentTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+                osc.start(this.audioContext.currentTime); osc.stop(this.audioContext.currentTime + duration);
             }
 
-            createKick() {
-                const oscillator = this.audioContext.createOscillator();
-                const gainNode = this.audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(this.masterGainNode);
-                
-                oscillator.frequency.setValueAtTime(60, this.audioContext.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
-                oscillator.type = 'sine';
-                
-                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.01);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
-                
-                oscillator.start(this.audioContext.currentTime);
-                oscillator.stop(this.audioContext.currentTime + 0.3);
+            createKick(volume) {
+                const osc = this.audioContext.createOscillator(); const gain = this.audioContext.createGain();
+                osc.connect(gain); gain.connect(this.masterGainNode);
+                osc.frequency.setValueAtTime(150, this.audioContext.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+                gain.gain.setValueAtTime(volume, this.audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+                osc.start(); osc.stop(this.audioContext.currentTime + 0.5);
             }
 
-            createSnare() {
-                const bufferSize = this.audioContext.sampleRate * 0.2;
-                const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-                const output = buffer.getChannelData(0);
-                
-                for (let i = 0; i < bufferSize; i++) {
-                    output[i] = Math.random() * 2 - 1;
-                }
-                
+            createSnare(volume) {
                 const noise = this.audioContext.createBufferSource();
-                const filter = this.audioContext.createBiquadFilter();
-                const gainNode = this.audioContext.createGain();
-                
-                noise.buffer = buffer;
-                noise.connect(filter);
-                filter.connect(gainNode);
-                gainNode.connect(this.masterGainNode);
-                
-                filter.type = 'highpass';
-                filter.frequency.value = 1000;
-                
-                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0.1, this.audioContext.currentTime + 0.01);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
-                
-                noise.start(this.audioContext.currentTime);
-                noise.stop(this.audioContext.currentTime + 0.2);
+                const buffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate, this.audioContext.sampleRate);
+                const output = buffer.getChannelData(0); for (let i = 0; i < this.audioContext.sampleRate; i++) output[i] = Math.random() * 2 - 1;
+                noise.buffer = buffer; const filter = this.audioContext.createBiquadFilter();
+                filter.type = 'highpass'; filter.frequency.value = 1000; noise.connect(filter);
+                const envelope = this.audioContext.createGain(); filter.connect(envelope); envelope.connect(this.masterGainNode);
+                envelope.gain.setValueAtTime(volume * 0.5, this.audioContext.currentTime);
+                envelope.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+                noise.start(); noise.stop(this.audioContext.currentTime + 0.2);
             }
 
-            createHiHat() {
-                const bufferSize = this.audioContext.sampleRate * 0.1;
-                const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-                const output = buffer.getChannelData(0);
-                
-                for (let i = 0; i < bufferSize; i++) {
-                    output[i] = Math.random() * 2 - 1;
-                }
-                
+            createHiHat(volume) {
                 const noise = this.audioContext.createBufferSource();
-                const filter = this.audioContext.createBiquadFilter();
-                const gainNode = this.audioContext.createGain();
-                
-                noise.buffer = buffer;
-                noise.connect(filter);
-                filter.connect(gainNode);
-                gainNode.connect(this.masterGainNode);
-                
-                filter.type = 'highpass';
-                filter.frequency.value = 7000;
-                
-                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0.05, this.audioContext.currentTime + 0.01);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
-                
-                noise.start(this.audioContext.currentTime);
-                noise.stop(this.audioContext.currentTime + 0.1);
+                const buffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate, this.audioContext.sampleRate);
+                const output = buffer.getChannelData(0); for (let i = 0; i < this.audioContext.sampleRate; i++) output[i] = Math.random() * 2 - 1;
+                noise.buffer = buffer; const filter = this.audioContext.createBiquadFilter();
+                filter.type = 'highpass'; filter.frequency.value = 7000; noise.connect(filter);
+                const envelope = this.audioContext.createGain(); filter.connect(envelope); envelope.connect(this.masterGainNode);
+                envelope.gain.setValueAtTime(volume * 0.3, this.audioContext.currentTime);
+                envelope.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.05);
+                noise.start(); noise.stop(this.audioContext.currentTime + 0.05);
             }
 
             togglePlayback() {
                 this.isPlaying = !this.isPlaying;
                 const button = document.getElementById('playPauseBtn');
-                
-                if (this.isPlaying) {
-                    button.textContent = '⏸ Pausar';
-                    button.classList.add('active');
-                } else {
-                    button.textContent = '▶ Reproduzir';
-                    button.classList.remove('active');
-                }
-                
-                this.updateStatus();
+                button.textContent = this.isPlaying ? '⏸ Pause' : '▶ Play';
+                button.classList.toggle('active', this.isPlaying); this.updateStatus();
             }
 
             stopAllInstruments() {
-                Object.keys(this.instruments).forEach(instrumentName => {
-                    if (this.instruments[instrumentName].interval) {
-                        clearInterval(this.instruments[instrumentName].interval);
-                    }
-                    document.querySelector(`[data-instrument="${instrumentName}"]`).classList.remove('active', 'playing');
-                });
-                
-                this.instruments = {};
-                this.isPlaying = false;
-                
-                document.getElementById('playPauseBtn').textContent = '▶ Reproduzir';
+                Object.values(this.instruments).forEach(inst => clearInterval(inst.interval));
+                this.instruments = {}; this.isPlaying = false;
+                document.querySelectorAll('.instrument').forEach(b => b.classList.remove('active'));
+                document.getElementById('playPauseBtn').textContent = '▶ Play';
                 document.getElementById('playPauseBtn').classList.remove('active');
-                
-                if (this.audioContext) {
-                    this.audioContext.close();
-                    this.audioContext = null;
-                }
-                
-                this.updateStatus();
+                this.closeMidiEditor(); this.updateStatus();
             }
 
             updateStatus() {
-                const activeInstruments = Object.keys(this.instruments);
-                const playingStatus = this.isPlaying ? 'Tocando' : 'Pausado';
-                
-                if (activeInstruments.length > 0) {
-                    document.getElementById('status').textContent = 
-                        `${playingStatus} | Instrumentos: ${activeInstruments.join(', ').replace(/(\w+)/g, (match) => {
-                            const names = {
-                                guitar: 'Guitarra', drums: 'Bateria', bass: 'Baixo', synth: 'Sintetizador',
-                                flute: 'Flauta', choir: 'Coral', piano: 'Piano', strings: 'Cordas'
-                            };
-                            return names[match] || match;
-                        })}`;
+                const active = Object.keys(this.instruments);
+                const status = this.isPlaying ? 'Tocando' : 'Pausado';
+                if (active.length > 0) {
+                    document.getElementById('status').textContent = `${status} | Instrumentos: ${active.join(', ')}`;
                 } else {
-                    document.getElementById('status').textContent = 
-                        'Selecione instrumentos para adicionar à composição';
+                    document.getElementById('status').textContent = 'Selecione instrumentos para adicionar à composição';
                 }
             }
 
             setupEventListeners() {
-                document.getElementById('generateBtn').addEventListener('click', () => {
-                    this.generateNewSong();
-                });
-                
-                document.getElementById('playPauseBtn').addEventListener('click', () => {
-                    this.togglePlayback();
-                });
-                
-                document.getElementById('stopBtn').addEventListener('click', () => {
-                    this.stopAllInstruments();
-                });
-                
+                document.getElementById('generateBtn').addEventListener('click', () => this.generateNewSong());
+                document.getElementById('playPauseBtn').addEventListener('click', () => this.togglePlayback());
+                document.getElementById('stopBtn').addEventListener('click', () => this.stopAllInstruments());
+                document.getElementById('closeEditorBtn').addEventListener('click', () => this.closeMidiEditor());
                 document.querySelectorAll('.instrument').forEach(button => {
-                    button.addEventListener('click', () => {
-                        const instrumentName = button.getAttribute('data-instrument');
-                        this.toggleInstrument(instrumentName);
-                    });
+                    button.addEventListener('click', () => { this.toggleInstrument(button.dataset.instrument); });
                 });
             }
         }
 
-        // Inicializa o gerador quando a página carrega
-        window.addEventListener('load', () => {
-            new ProceduralMusicGenerator();
-        });
+        let musicGen;
+        window.addEventListener('load', () => { musicGen = new ProceduralMusicGenerator(); });
     </script>
 </body>
 </html>
+
