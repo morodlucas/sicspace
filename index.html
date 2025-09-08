@@ -1,12 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SicSpace</title>
+    <title>Gerador Musical Procedural</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone.js/14.8.49/Tone.min.js"></script>
     <style>
-        /* CSS remains the same as it has no language-specific content */
         body {
             margin: 0;
             padding: 20px;
@@ -19,252 +18,690 @@
             align-items: center;
             justify-content: center;
         }
-        .container { text-align: center; max-width: 800px; position: relative; z-index: 2; }
-        .title { font-size: 2.5rem; margin-bottom: 1rem; text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
-        .concept { font-size: 1.1rem; opacity: 0.9; margin-bottom: 2rem; line-height: 1.6; background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 10px; backdrop-filter: blur(10px); }
-        .controls { display: flex; gap: 15px; justify-content: center; margin: 2rem 0; flex-wrap: wrap; }
-        .btn { padding: 15px 25px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); color: white; cursor: pointer; transition: all 0.3s ease; backdrop-filter: blur(10px); font-family: inherit; font-size: 1rem; border-radius: 5px; min-width: 120px; }
-        .btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.5); transform: translateY(-2px); }
-        .btn.active { background: rgba(100, 200, 255, 0.3); border-color: rgba(100, 200, 255, 0.7); box-shadow: 0 0 15px rgba(100, 200, 255, 0.3); }
-        .status { margin: 1rem 0; font-size: 1.1rem; opacity: 0.8; min-height: 50px; display: flex; align-items: center; justify-content: center; }
-        .visualizer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; overflow: hidden; }
-        .wave { position: absolute; width: 100px; height: 100px; border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 50%; animation: ripple 4s ease-out infinite; }
-        @keyframes ripple { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(4); opacity: 0; } }
-        .error-note { position: absolute; width: 6px; height: 6px; background: #ff6b6b; border-radius: 50%; animation: errorFloat 3s ease-in-out infinite; }
-        .harmony-note { position: absolute; width: 8px; height: 8px; background: #4ecdc4; border-radius: 50%; animation: harmonyFloat 4s ease-in-out infinite; }
-        @keyframes errorFloat { 0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; } 50% { transform: translateY(-30px) rotate(180deg); opacity: 0.9; } }
-        @keyframes harmonyFloat { 0%, 100% { transform: translateY(0) scale(1); opacity: 0.4; } 50% { transform: translateY(-20px) scale(1.3); opacity: 0.8; } }
-        .explanation { margin-top: 2rem; font-size: 0.9rem; opacity: 0.7; line-height: 1.5; text-align: left; }
+
+        .container {
+            text-align: center;
+            max-width: 900px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .title {
+            font-size: 2.8rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 2rem;
+            font-style: italic;
+        }
+
+        .song-info {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .main-controls {
+            margin-bottom: 2rem;
+        }
+
+        .main-controls .btn {
+            font-size: 1.1rem;
+            padding: 15px 30px;
+            min-width: 140px;
+        }
+
+        .instruments-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            max-width: 700px;
+            margin: 0 auto 2rem;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            font-family: inherit;
+            font-size: 0.95rem;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn.active {
+            background: rgba(100, 200, 255, 0.25);
+            border-color: rgba(100, 200, 255, 0.6);
+            box-shadow: 0 0 15px rgba(100, 200, 255, 0.3);
+        }
+
+        .btn.playing::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .status {
+            margin: 1rem 0;
+            font-size: 1rem;
+            opacity: 0.8;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .visualizer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .instrument-particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .guitar { background: #ff6b6b; box-shadow: 0 0 10px #ff6b6b; }
+        .drums { background: #ffd700; box-shadow: 0 0 10px #ffd700; }
+        .bass { background: #4ecdc4; box-shadow: 0 0 10px #4ecdc4; }
+        .synth { background: #45b7d1; box-shadow: 0 0 10px #45b7d1; }
+        .flute { background: #96ceb4; box-shadow: 0 0 10px #96ceb4; }
+        .choir { background: #f4a6d7; box-shadow: 0 0 10px #f4a6d7; }
+        .piano { background: #dda0dd; box-shadow: 0 0 10px #dda0dd; }
+        .strings { background: #ffa07a; box-shadow: 0 0 10px #ffa07a; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
+            50% { transform: translateY(-25px) scale(1.2); opacity: 0.9; }
+        }
+
+        .wave {
+            position: absolute;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            animation: ripple 5s ease-out infinite;
+        }
+
+        @keyframes ripple {
+            0% { transform: scale(0); opacity: 0.8; }
+            100% { transform: scale(6); opacity: 0; }
+        }
+
+        .info {
+            margin-top: 2rem;
+            font-size: 0.85rem;
+            opacity: 0.6;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
     <div class="visualizer" id="visualizer"></div>
     
     <div class="container">
-        <h1 class="title">Welcome to SicSpace</h1>
+        <h1 class="title">🎵 Gerador Musical Procedural</h1>
+        <p class="subtitle">Crie música única a cada sessão com algoritmos generativos</p>
         
-        <div class="concept">
-            <strong>Concept:</strong> This is a musical composition born from chance and "error."
-            Every dissonance finds its resolution, every "wrong" note discovers its harmony.
-            <br><br>
-            <em>Beauty emerges not in spite of mistakes, but through them.</em>
+        <div class="song-info" id="songInfo">
+            <strong>🎼 Configuração Atual:</strong><br>
+            <span id="currentSettings">Pressione "Gerar Nova Música" para começar</span>
         </div>
         
-        <div class="controls">
-            <button class="btn" id="startBtn">▶ Start Music</button>
-            <button class="btn" id="chaosBtn">🌪️ More Chaos</button>
-            <button class="btn" id="peaceBtn">🕊️ More Peace</button>
-            <button class="btn" id="stopBtn">⏹️ Stop</button>
+        <div class="main-controls controls">
+            <button class="btn" id="generateBtn">🎲 Gerar Nova Música</button>
+            <button class="btn" id="playPauseBtn">▶ Reproduzir</button>
+            <button class="btn" id="stopBtn">⏹ Parar Tudo</button>
+        </div>
+
+        <div class="instruments-grid">
+            <button class="btn instrument" data-instrument="guitar">🎸 Guitarra</button>
+            <button class="btn instrument" data-instrument="drums">🥁 Bateria</button>
+            <button class="btn instrument" data-instrument="bass">🎯 Baixo</button>
+            <button class="btn instrument" data-instrument="synth">🎹 Sintetizador</button>
+            <button class="btn instrument" data-instrument="flute">🪈 Flauta</button>
+            <button class="btn instrument" data-instrument="choir">👥 Coral</button>
+            <button class="btn instrument" data-instrument="piano">🎹 Piano</button>
+            <button class="btn instrument" data-instrument="strings">🎻 Cordas</button>
         </div>
 
         <div class="status" id="status">
-            Press "Start Music" to begin the sound experience
+            Clique em "Gerar Nova Música" para criar uma base musical aleatória
         </div>
 
-        <div class="explanation">
-            <strong>How it works:</strong><br>
-            • <strong>Start:</strong> Begins the composition with a balance between order and chaos<br>
-            • <strong>More Chaos:</strong> Adds more beautiful "errors" - unexpected notes, broken rhythms<br>
-            • <strong>More Peace:</strong> Increases harmony - chords that resolve tensions<br>
-            • <strong>Visualization:</strong> Red dots = "errors", blue dots = harmonies<br><br>
-            
-            <em>Our mistakes in life, just like in music, can become our most beautiful moments when they find the right context.</em>
+        <div class="info">
+            <strong>Como usar:</strong><br>
+            1. <strong>Gerar Nova Música</strong> → Cria BPM e tonalidade aleatórios<br>
+            2. <strong>Reproduzir</strong> → Inicia/pausa a reprodução<br>
+            3. <strong>Instrumentos</strong> → Cada um cria uma melodia única em loop<br>
+            4. <strong>Combine</strong> diferentes instrumentos para criar arranjos complexos!
         </div>
     </div>
 
     <script>
-        let audioContext = null;
-        let isPlaying = false;
-        let chaosLevel = 0.5;
-        let peaceLevel = 0.5;
-        let intervals = [];
-        let noteCount = 0;
-
-        // Musical notes in frequencies
-        const notes = {
-            'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 
-            'G4': 392.00, 'A4': 440.00, 'B4': 493.88, 'C5': 523.25
-        };
-
-        const errorNotes = {
-            'Db4': 277.18, 'Eb4': 311.13, 'Gb4': 369.99, 'Ab4': 415.30, 'Bb4': 466.16
-        };
-
-        function createWave(x, y) {
-            const wave = document.createElement('div');
-            wave.className = 'wave';
-            wave.style.left = x + 'px';
-            wave.style.top = y + 'px';
-            document.getElementById('visualizer').appendChild(wave);
-            
-            setTimeout(() => {
-                if (wave.parentNode) {
-                    wave.parentNode.removeChild(wave);
-                }
-            }, 4000);
-        }
-
-        function createNote(isError = false) {
-            const note = document.createElement('div');
-            note.className = isError ? 'error-note' : 'harmony-note';
-            note.style.left = Math.random() * window.innerWidth + 'px';
-            note.style.top = Math.random() * window.innerHeight + 'px';
-            document.getElementById('visualizer').appendChild(note);
-            
-            setTimeout(() => {
-                if (note.parentNode) {
-                    note.parentNode.removeChild(note);
-                }
-            }, 3000);
-        }
-
-        function playNote(frequency, duration = 0.3, isError = false) {
-            if (!audioContext) return;
-
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-            oscillator.type = isError ? 'sawtooth' : 'sine';
-            
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
-            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + duration);
-            
-            createNote(isError);
-            createWave(Math.random() * window.innerWidth, Math.random() * window.innerHeight);
-        }
-
-        function playChord(frequencies, duration = 0.5) {
-            frequencies.forEach(freq => {
-                playNote(freq, duration, false);
-            });
-        }
-
-        function generateMusic() {
-            if (!isPlaying) return;
-
-            const noteArray = Object.values(notes);
-            const errorArray = Object.values(errorNotes);
-            
-            // Decide whether to play an error or harmony
-            if (Math.random() < chaosLevel) {
-                // Play "wrong" note
-                const errorNote = errorArray[Math.floor(Math.random() * errorArray.length)];
-                playNote(errorNote, 0.2, true);
-            } else {
-                // Play harmonic note
-                const harmonicNote = noteArray[Math.floor(Math.random() * noteArray.length)];
-                playNote(harmonicNote, 0.4, false);
+        class ProceduralMusicGenerator {
+            constructor() {
+                this.audioContext = null;
+                this.isPlaying = false;
+                this.currentBPM = 120;
+                this.currentKey = 'C';
+                this.currentScale = 'major';
+                this.masterGainNode = null;
+                
+                this.instruments = {};
+                this.scales = {
+                    major: [0, 2, 4, 5, 7, 9, 11],
+                    minor: [0, 2, 3, 5, 7, 8, 10],
+                    dorian: [0, 2, 3, 5, 7, 9, 10],
+                    pentatonic: [0, 2, 4, 7, 9],
+                    blues: [0, 3, 5, 6, 7, 10]
+                };
+                
+                this.keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                this.scaleNames = Object.keys(this.scales);
+                
+                this.setupEventListeners();
             }
-            
-            // Occasionally play chords (more likely with more peace)
-            if (Math.random() < peaceLevel * 0.3) {
-                const chord = [notes.C4, notes.E4, notes.G4];
+
+            async initAudio() {
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    await this.audioContext.resume();
+                    
+                    // Master gain para controlar volume geral
+                    this.masterGainNode = this.audioContext.createGain();
+                    this.masterGainNode.connect(this.audioContext.destination);
+                    this.masterGainNode.gain.value = 0.3;
+                }
+            }
+
+            generateNewSong() {
+                // Gera configurações aleatórias
+                this.currentBPM = 80 + Math.floor(Math.random() * 60); // 80-140 BPM
+                this.currentKey = this.keys[Math.floor(Math.random() * this.keys.length)];
+                this.currentScale = this.scaleNames[Math.floor(Math.random() * this.scaleNames.length)];
+                
+                // Para todos instrumentos
+                this.stopAllInstruments();
+                
+                // Atualiza display
+                document.getElementById('currentSettings').innerHTML = 
+                    `<strong>BPM:</strong> ${this.currentBPM} | <strong>Tom:</strong> ${this.currentKey} ${this.currentScale} | <strong>Compasso:</strong> 4/4`;
+                
+                document.getElementById('status').textContent = 
+                    `Nova música gerada! BPM: ${this.currentBPM}, Tom: ${this.currentKey} ${this.currentScale}`;
+            }
+
+            getScaleNotes(octave = 4) {
+                const baseFreq = 440; // A4
+                const semitoneRatio = Math.pow(2, 1/12);
+                const keyOffset = this.keys.indexOf(this.currentKey);
+                const notes = [];
+                
+                this.scales[this.currentScale].forEach(interval => {
+                    const semitonesFromA4 = (octave - 4) * 12 + interval + keyOffset - 9; // A4 é index 9
+                    const frequency = baseFreq * Math.pow(semitoneRatio, semitonesFromA4);
+                    notes.push(frequency);
+                });
+                
+                return notes;
+            }
+
+            createParticle(instrumentType) {
+                const particle = document.createElement('div');
+                particle.className = `instrument-particle ${instrumentType}`;
+                particle.style.left = Math.random() * window.innerWidth + 'px';
+                particle.style.top = Math.random() * window.innerHeight + 'px';
+                particle.style.animationDelay = Math.random() * 3 + 's';
+                document.getElementById('visualizer').appendChild(particle);
+                
                 setTimeout(() => {
-                    if (isPlaying) playChord(chord);
-                }, 200);
-            }
-            
-            noteCount++;
-            updateStatus();
-        }
-
-        function updateStatus() {
-            const chaosPercent = Math.round(chaosLevel * 100);
-            const peacePercent = Math.round(peaceLevel * 100);
-            
-            if (isPlaying) {
-                document.getElementById('status').innerHTML = 
-                    `🎵 Playing... | Chaos: ${chaosPercent}% | Peace: ${peacePercent}% | Notes: ${noteCount}`;
-            }
-        }
-
-        async function startMusic() {
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                await audioContext.resume();
-                
-                isPlaying = true;
-                noteCount = 0;
-                
-                document.getElementById('startBtn').classList.add('active');
-                document.getElementById('startBtn').textContent = '🎵 Playing...';
-                
-                // Generate music at varied intervals
-                const mainInterval = setInterval(() => {
-                    if (isPlaying) {
-                        generateMusic();
-                    } else {
-                        clearInterval(mainInterval);
+                    if (particle.parentNode) {
+                        particle.parentNode.removeChild(particle);
                     }
-                }, 800 - (chaosLevel * 400)); // More chaos = more irregular rhythm
+                }, 3000);
+            }
+
+            createWave() {
+                const wave = document.createElement('div');
+                wave.className = 'wave';
+                wave.style.left = Math.random() * window.innerWidth + 'px';
+                wave.style.top = Math.random() * window.innerHeight + 'px';
+                wave.style.width = (50 + Math.random() * 100) + 'px';
+                wave.style.height = wave.style.width;
+                document.getElementById('visualizer').appendChild(wave);
                 
-                intervals.push(mainInterval);
-                updateStatus();
+                setTimeout(() => {
+                    if (wave.parentNode) {
+                        wave.parentNode.removeChild(wave);
+                    }
+                }, 5000);
+            }
+
+            async playNote(frequency, duration, synthType, gainValue = 0.1) {
+                if (!this.audioContext) return;
+
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
                 
-            } catch (error) {
-                document.getElementById('status').textContent = 'Error starting audio. Please try again.';
-                console.error('Audio error:', error);
+                oscillator.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.masterGainNode);
+                
+                oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+                oscillator.type = synthType;
+                
+                // Configurações do filtro baseadas no tipo
+                filter.type = 'lowpass';
+                filter.frequency.value = synthType === 'sawtooth' ? 800 : 2000;
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(gainValue, this.audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration);
+            }
+
+            // Gerador de patterns únicos para cada instrumento
+            generatePattern(length = 16) {
+                const pattern = [];
+                for (let i = 0; i < length; i++) {
+                    pattern.push(Math.random() > 0.7 ? 1 : 0);
+                }
+                return pattern;
+            }
+
+            generateMelody(length = 8) {
+                const melody = [];
+                const notes = this.getScaleNotes(4);
+                
+                for (let i = 0; i < length; i++) {
+                    if (Math.random() > 0.3) {
+                        melody.push(notes[Math.floor(Math.random() * notes.length)]);
+                    } else {
+                        melody.push(null); // Pausa
+                    }
+                }
+                return melody;
+            }
+
+            async toggleInstrument(instrumentName) {
+                await this.initAudio();
+                
+                if (this.instruments[instrumentName]) {
+                    // Para o instrumento
+                    clearInterval(this.instruments[instrumentName].interval);
+                    delete this.instruments[instrumentName];
+                    
+                    document.querySelector(`[data-instrument="${instrumentName}"]`).classList.remove('active', 'playing');
+                } else {
+                    // Inicia o instrumento
+                    const instrumentConfig = this.createInstrumentConfig(instrumentName);
+                    this.instruments[instrumentName] = instrumentConfig;
+                    
+                    const button = document.querySelector(`[data-instrument="${instrumentName}"]`);
+                    button.classList.add('active', 'playing');
+                    
+                    this.startInstrumentLoop(instrumentName, instrumentConfig);
+                }
+                
+                this.updateStatus();
+            }
+
+            createInstrumentConfig(instrumentName) {
+                const beatDuration = (60 / this.currentBPM) * 1000;
+                
+                switch (instrumentName) {
+                    case 'guitar':
+                        return {
+                            pattern: this.generatePattern(16),
+                            melody: this.generateMelody(8),
+                            synthType: 'sawtooth',
+                            duration: 0.3,
+                            gain: 0.08,
+                            beatDivision: 4 // 16th notes
+                        };
+                    
+                    case 'bass':
+                        return {
+                            pattern: this.generatePattern(4),
+                            melody: this.getScaleNotes(2), // Oitava mais baixa
+                            synthType: 'sine',
+                            duration: 0.8,
+                            gain: 0.15,
+                            beatDivision: 1 // quarter notes
+                        };
+                    
+                    case 'synth':
+                        return {
+                            pattern: this.generatePattern(8),
+                            melody: this.generateMelody(12),
+                            synthType: 'square',
+                            duration: 0.5,
+                            gain: 0.06,
+                            beatDivision: 2
+                        };
+                    
+                    case 'flute':
+                        return {
+                            pattern: this.generatePattern(12),
+                            melody: this.getScaleNotes(5), // Oitava alta
+                            synthType: 'sine',
+                            duration: 0.6,
+                            gain: 0.05,
+                            beatDivision: 3
+                        };
+                    
+                    case 'choir':
+                        return {
+                            pattern: this.generatePattern(4),
+                            melody: this.getScaleNotes(4),
+                            synthType: 'sine',
+                            duration: 2.0,
+                            gain: 0.04,
+                            beatDivision: 1,
+                            isChord: true // Toca acordes
+                        };
+                    
+                    case 'piano':
+                        return {
+                            pattern: this.generatePattern(16),
+                            melody: this.generateMelody(16),
+                            synthType: 'triangle',
+                            duration: 0.4,
+                            gain: 0.07,
+                            beatDivision: 4
+                        };
+                    
+                    case 'strings':
+                        return {
+                            pattern: this.generatePattern(8),
+                            melody: this.getScaleNotes(4),
+                            synthType: 'sawtooth',
+                            duration: 1.5,
+                            gain: 0.03,
+                            beatDivision: 2
+                        };
+                    
+                    default: // drums
+                        return {
+                            pattern: this.generatePattern(16),
+                            synthType: 'drums',
+                            beatDivision: 4
+                        };
+                }
+            }
+
+            startInstrumentLoop(instrumentName, config) {
+                const beatDuration = (60 / this.currentBPM) * 1000 / config.beatDivision;
+                let step = 0;
+                
+                config.interval = setInterval(() => {
+                    if (!this.isPlaying) return;
+                    
+                    if (instrumentName === 'drums') {
+                        this.playDrumPattern(config, step);
+                    } else {
+                        this.playInstrumentNote(instrumentName, config, step);
+                    }
+                    
+                    step = (step + 1) % config.pattern.length;
+                }, beatDuration);
+            }
+
+            playInstrumentNote(instrumentName, config, step) {
+                if (!config.pattern[step]) return;
+                
+                this.createParticle(instrumentName);
+                
+                if (config.isChord && instrumentName === 'choir') {
+                    // Toca acorde
+                    const chord = [config.melody[0], config.melody[2], config.melody[4]];
+                    chord.forEach((freq, i) => {
+                        setTimeout(() => {
+                            this.playNote(freq, config.duration, config.synthType, config.gain);
+                        }, i * 20);
+                    });
+                } else {
+                    // Toca nota simples
+                    const noteIndex = step % config.melody.length;
+                    if (config.melody[noteIndex]) {
+                        this.playNote(config.melody[noteIndex], config.duration, config.synthType, config.gain);
+                    }
+                }
+                
+                if (Math.random() < 0.3) {
+                    this.createWave();
+                }
+            }
+
+            playDrumPattern(config, step) {
+                if (!config.pattern[step]) return;
+                
+                this.createParticle('drums');
+                this.createDrumSound(step % 4);
+            }
+
+            createDrumSound(beat) {
+                if (!this.audioContext) return;
+                
+                if (beat === 0 || beat === 2) {
+                    // Kick
+                    this.createKick();
+                } else if (beat === 1 || beat === 3) {
+                    // Snare
+                    this.createSnare();
+                } else {
+                    // Hi-hat
+                    this.createHiHat();
+                }
+            }
+
+            createKick() {
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.masterGainNode);
+                
+                oscillator.frequency.setValueAtTime(60, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.3);
+            }
+
+            createSnare() {
+                const bufferSize = this.audioContext.sampleRate * 0.2;
+                const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+                const output = buffer.getChannelData(0);
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                
+                const noise = this.audioContext.createBufferSource();
+                const filter = this.audioContext.createBiquadFilter();
+                const gainNode = this.audioContext.createGain();
+                
+                noise.buffer = buffer;
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.masterGainNode);
+                
+                filter.type = 'highpass';
+                filter.frequency.value = 1000;
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.1, this.audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+                
+                noise.start(this.audioContext.currentTime);
+                noise.stop(this.audioContext.currentTime + 0.2);
+            }
+
+            createHiHat() {
+                const bufferSize = this.audioContext.sampleRate * 0.1;
+                const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+                const output = buffer.getChannelData(0);
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                
+                const noise = this.audioContext.createBufferSource();
+                const filter = this.audioContext.createBiquadFilter();
+                const gainNode = this.audioContext.createGain();
+                
+                noise.buffer = buffer;
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.masterGainNode);
+                
+                filter.type = 'highpass';
+                filter.frequency.value = 7000;
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.05, this.audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
+                
+                noise.start(this.audioContext.currentTime);
+                noise.stop(this.audioContext.currentTime + 0.1);
+            }
+
+            togglePlayback() {
+                this.isPlaying = !this.isPlaying;
+                const button = document.getElementById('playPauseBtn');
+                
+                if (this.isPlaying) {
+                    button.textContent = '⏸ Pausar';
+                    button.classList.add('active');
+                } else {
+                    button.textContent = '▶ Reproduzir';
+                    button.classList.remove('active');
+                }
+                
+                this.updateStatus();
+            }
+
+            stopAllInstruments() {
+                Object.keys(this.instruments).forEach(instrumentName => {
+                    if (this.instruments[instrumentName].interval) {
+                        clearInterval(this.instruments[instrumentName].interval);
+                    }
+                    document.querySelector(`[data-instrument="${instrumentName}"]`).classList.remove('active', 'playing');
+                });
+                
+                this.instruments = {};
+                this.isPlaying = false;
+                
+                document.getElementById('playPauseBtn').textContent = '▶ Reproduzir';
+                document.getElementById('playPauseBtn').classList.remove('active');
+                
+                if (this.audioContext) {
+                    this.audioContext.close();
+                    this.audioContext = null;
+                }
+                
+                this.updateStatus();
+            }
+
+            updateStatus() {
+                const activeInstruments = Object.keys(this.instruments);
+                const playingStatus = this.isPlaying ? 'Tocando' : 'Pausado';
+                
+                if (activeInstruments.length > 0) {
+                    document.getElementById('status').textContent = 
+                        `${playingStatus} | Instrumentos: ${activeInstruments.join(', ').replace(/(\w+)/g, (match) => {
+                            const names = {
+                                guitar: 'Guitarra', drums: 'Bateria', bass: 'Baixo', synth: 'Sintetizador',
+                                flute: 'Flauta', choir: 'Coral', piano: 'Piano', strings: 'Cordas'
+                            };
+                            return names[match] || match;
+                        })}`;
+                } else {
+                    document.getElementById('status').textContent = 
+                        'Selecione instrumentos para adicionar à composição';
+                }
+            }
+
+            setupEventListeners() {
+                document.getElementById('generateBtn').addEventListener('click', () => {
+                    this.generateNewSong();
+                });
+                
+                document.getElementById('playPauseBtn').addEventListener('click', () => {
+                    this.togglePlayback();
+                });
+                
+                document.getElementById('stopBtn').addEventListener('click', () => {
+                    this.stopAllInstruments();
+                });
+                
+                document.querySelectorAll('.instrument').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const instrumentName = button.getAttribute('data-instrument');
+                        this.toggleInstrument(instrumentName);
+                    });
+                });
             }
         }
 
-        function stopMusic() {
-            isPlaying = false;
-            intervals.forEach(interval => clearInterval(interval));
-            intervals = [];
-            
-            if (audioContext) {
-                audioContext.close();
-                audioContext = null;
-            }
-            
-            document.getElementById('startBtn').classList.remove('active');
-            document.getElementById('startBtn').textContent = '▶ Start Music';
-            document.getElementById('status').textContent = 'Music stopped. Silence is also beautiful.';
-        }
-
-        function increaseChaos() {
-            chaosLevel = Math.min(1, chaosLevel + 0.2);
-            peaceLevel = Math.max(0, peaceLevel - 0.1);
-            
-            if (isPlaying) {
-                updateStatus();
-                // Play some chaotic notes immediately
-                setTimeout(() => playNote(Object.values(errorNotes)[Math.floor(Math.random() * 5)], 0.1, true), 0);
-                setTimeout(() => playNote(Object.values(errorNotes)[Math.floor(Math.random() * 5)], 0.1, true), 100);
-            } else {
-                document.getElementById('status').textContent = `Chaos increased to ${Math.round(chaosLevel * 100)}%. Start the music to hear it.`;
-            }
-        }
-
-        function increasePeace() {
-            peaceLevel = Math.min(1, peaceLevel + 0.2);
-            chaosLevel = Math.max(0, chaosLevel - 0.1);
-            
-            if (isPlaying) {
-                updateStatus();
-                // Play a harmonious chord immediately
-                playChord([notes.C4, notes.E4, notes.G4, notes.C5], 0.8);
-            } else {
-                document.getElementById('status').textContent = `Peace increased to ${Math.round(peaceLevel * 100)}%. Start the music to hear it.`;
-            }
-        }
-
-        // Event listeners
-        document.getElementById('startBtn').addEventListener('click', startMusic);
-        document.getElementById('stopBtn').addEventListener('click', stopMusic);
-        document.getElementById('chaosBtn').addEventListener('click', increaseChaos);
-        document.getElementById('peaceBtn').addEventListener('click', increasePeace);
-
-        // Initialization
-        document.getElementById('status').textContent = 'Ready? Press "Start Music" to begin the experience.';
+        // Inicializa o gerador quando a página carrega
+        window.addEventListener('load', () => {
+            new ProceduralMusicGenerator();
+        });
     </script>
 </body>
 </html>
