@@ -343,7 +343,7 @@
     <div class="visualizer" id="visualizer"></div>
     <div class="main-content" id="mainContent">
         <div class="container">
-            <h1 class="title-custom">Welcome to<img src="./images/soundloop_logo.gif" alt="logo" class="w-50 ms-2"></h1>
+            <h1 class="title-custom">Welcome to<img src="./images/soundloop_logo.gif" alt="logo" class="w-25 ms-2"></h1>
             <p class="subtitle">Build your own orchestra</p>
             <div class="song-info" id="songInfo">
                 <strong>🎼 Current Settings:</strong><br>
@@ -366,8 +366,7 @@
                 4. <strong>MIDI Editor</strong> → The editor will appear on the side for the selected instrument.
             </div>
             <div class="disclaimer">
-                The final product is not made by AI, it is purely a matter of randomness
-                ...and a bit of music theory
+                Disclaimer: The final product is not made by AI, it is purely a matter of randomness.
             </div>
         </div>
     </div>
@@ -468,7 +467,7 @@
                     <h3>Editing: ${defaultConfig.name}</h3>
                     <div class="midi-controls">
                         <label>Length:</label>
-                        <select id="length-${instrumentName}"><option value="16">16</option><option value="32" selected>32</option></select>
+                        <select id="length-${instrumentName}"><option value="32">32</option><option value="64" selected>64</option></select>
                         ${instrumentName !== 'drums' ? `<label>Octave:</label><select id="octave-${instrumentName}">${octaveOptions}</select>` : ''}
                         <label>Volume:</label>
                         <input type="range" id="volume-${instrumentName}" min="0" max="1" step="0.01" value="0.5">
@@ -501,12 +500,13 @@
                 const rollContainer = document.getElementById(`roll-${instrumentName}`);
                 if (!rollContainer) return;
 
-                const patternLength = parseInt(document.getElementById(`length-${instrumentName}`).value);
+                const patternLength = parseInt(document.getElementById(`length-${instrumentName}`)?.value) || 64;
                 const isDrums = instrumentName === 'drums';
                 
+                const defaultOctave = this.instrumentConfigs[instrumentName].defaultOctave || 4;
                 const notes = isDrums 
                     ? ['Hi-Hat', 'Snare', 'Kick'] 
-                    : this.getHarmonicFieldNotes(parseInt(document.getElementById(`octave-${instrumentName}`).value), instrumentName);
+                    : this.getHarmonicFieldNotes(parseInt(document.getElementById(`octave-${instrumentName}`)?.value) || defaultOctave, instrumentName);
 
                 let keysHtml = '<div class="piano-keys">';
                 notes.forEach(noteName => {
@@ -517,7 +517,7 @@
 
                 let gridHtml = `<div class="note-grid-wrapper"><div class="note-grid" id="grid-${instrumentName}">`;
                 for (let beat = 0; beat < patternLength; beat++) {
-                    const beatMarkerClass = (beat % 4 === 0) ? ' beat-marker' : '';
+                    const beatMarkerClass = (beat % 16 === 0) ? ' beat-marker' : '';
                     const drumColumnClass = isDrums ? ' drum-column' : '';
                     gridHtml += `<div class="beat-column${beatMarkerClass}${drumColumnClass}">`;
                     notes.forEach(noteName => {
@@ -530,7 +530,7 @@
                 rollContainer.innerHTML = keysHtml + gridHtml;
 
                 if (!this.midiEditors[instrumentName] || this.midiEditors[instrumentName].patternLength !== patternLength) {
-                     this.midiEditors[instrumentName] = this.generatePatternData(instrumentName);
+                     this.midiEditors[instrumentName] = this.generatePatternData(instrumentName, patternLength);
                 }
                 this.updatePianoRollVisuals(instrumentName);
                 rollContainer.querySelectorAll('.note-cell').forEach(cell => {
@@ -580,26 +580,38 @@
                 this.updatePianoRollVisuals(instrumentName);
             }
 
-            generatePatternData(instrumentName) {
-                const patternLength = 32;
+            generatePatternData(instrumentName, patternLength = 64) {
                 const pattern = Array.from({ length: patternLength }, () => ({}));
                 const config = this.instrumentConfigs[instrumentName];
                 const octave = config.defaultOctave || 4;
 
                 if (instrumentName === 'drums') {
                     for (let beat = 0; beat < pattern.length; beat++) {
+                        const isLastMeasure = beat >= 48;
                         if (beat % 4 === 0) pattern[beat]['Kick'] = true;
-                        if (beat % 8 === 4) pattern[beat]['Snare'] = true;
-                        if (Math.random() < 0.7) pattern[beat]['Hi-Hat'] = true;
+                        
+                        if (beat % 8 === 4) {
+                             pattern[beat]['Snare'] = true;
+                        } else if (isLastMeasure && beat % 2 === 1 && Math.random() < 0.25) { // Fill variation
+                             pattern[beat]['Snare'] = true;
+                        }
+
+                        if (isLastMeasure && Math.random() < 0.9) {
+                            pattern[beat]['Hi-Hat'] = true;
+                        } else if (Math.random() < 0.7) {
+                            pattern[beat]['Hi-Hat'] = true;
+                        }
                     }
                 } else {
                     const scaleNotes = this.getHarmonicFieldNotes(octave, instrumentName);
                     for (let beat = 0; beat < pattern.length; beat++) {
+                        const isLastMeasure = beat >= 48;
                         let shouldPlaceNote = false;
                         if (config.isChord) {
-                            if (beat % 8 === 0 && Math.random() < 0.75) shouldPlaceNote = true;
+                            if (beat % 16 === 0 && Math.random() < 0.8) shouldPlaceNote = true;
                         } else {
-                            if (Math.random() < 0.25) shouldPlaceNote = true;
+                            const probability = isLastMeasure ? 0.35 : 0.25;
+                            if (Math.random() < probability) shouldPlaceNote = true;
                         }
                         if (shouldPlaceNote) {
                             const randomNote = scaleNotes[Math.floor(Math.random() * scaleNotes.length)];
