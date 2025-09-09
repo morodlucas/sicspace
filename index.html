@@ -59,6 +59,16 @@
             font-size: 2.8rem;
             margin-bottom: 0.5rem;
             text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .header-logo {
+             max-width: 500px; /* Tamanho máximo da logo */
+             width: 50%;      /* Responsividade básica */
+             height: auto;
         }
 
         .subtitle {
@@ -106,7 +116,7 @@
         .instrument-container {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 12px;
-            padding: 0;
+            padding: 10px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             overflow: hidden;
@@ -117,6 +127,11 @@
             background: rgba(100, 200, 255, 0.15);
             border-color: rgba(100, 200, 255, 0.5);
             box-shadow: 0 0 15px rgba(100, 200, 255, 0.2);
+        }
+        
+        .instrument-button-wrapper {
+            display: flex;
+            gap: 8px;
         }
 
         .btn {
@@ -134,15 +149,38 @@
             overflow: hidden;
             width: 100%;
         }
+        
+        .instrument-btn {
+            flex-grow: 1;
+        }
+        
+        .edit-btn {
+            flex-shrink: 0;
+            width: 50px;
+            padding-left: 0;
+            padding-right: 0;
+        }
 
         .btn:hover {
             background: rgba(255, 255, 255, 0.15);
             border-color: rgba(255, 255, 255, 0.4);
             transform: translateY(-2px);
         }
+        
+        #playPauseBtn.active {
+            background: rgba(190, 140, 255, 0.4);
+            border-color: rgba(190, 140, 255, 0.7);
+            box-shadow: 0 0 15px rgba(190, 140, 255, 0.5);
+        }
 
-        .btn.active {
-            background: rgba(100, 200, 255, 0.25);
+        .btn.recording {
+            background: rgba(255, 60, 60, 0.4);
+            border-color: rgba(255, 60, 60, 0.7);
+            box-shadow: 0 0 15px rgba(255, 60, 60, 0.5);
+        }
+        
+        .btn.instrument-btn.active {
+             background: rgba(100, 200, 255, 0.25);
             border-color: rgba(100, 200, 255, 0.6);
             box-shadow: 0 0 15px rgba(100, 200, 255, 0.3);
         }
@@ -210,14 +248,21 @@
             background: rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 6px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: auto;
+            height: calc(100vh - 300px);
             flex-grow: 1;
+            position: relative;
         }
 
         .piano-keys {
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            background: #101020;
         }
         
         .note-label {
@@ -236,8 +281,6 @@
         .drum-key { background: rgba(255, 255, 255, 0.05); height: 40px; }
 
         .note-grid-wrapper {
-            flex-grow: 1;
-            overflow-x: auto;
             position: relative;
         }
         
@@ -324,6 +367,9 @@
             .title-custom {
                 font-size: 2rem;
             }
+             .header-logo {
+                max-width: 100px;
+            }
 
             .subtitle {
                 font-size: 1rem;
@@ -343,7 +389,7 @@
     <div class="visualizer" id="visualizer"></div>
     <div class="main-content" id="mainContent">
         <div class="container">
-            <h1 class="title-custom">Welcome to<img src="./images/soundloop_logo.gif" alt="logo" class="w-50 ms-2"></h1>
+            <h1 class="title-custom">Welcome to<img src="./images/soundloop_logo.gif" alt="logo" class="header-logo"></h1>
             <p class="subtitle">Build your own orchestra</p>
             <div class="song-info" id="songInfo">
                 <strong>🎼 Current Settings:</strong><br>
@@ -352,6 +398,7 @@
             <div class="main-controls controls">
                 <button class="btn" id="playPauseBtn">▶ Play</button>
                 <button class="btn" id="stopBtn">⏹ Stop</button>
+                <button class="btn" id="recordBtn">🔴 Record</button>
             </div>
             <div class="instruments-grid" id="instrumentsGrid"></div>
             <div class="controls">
@@ -387,6 +434,9 @@
                 this.masterGainNode = null; this.currentlyEditing = null;
                 this.instruments = {}; this.midiEditors = {};
                 this.isTabActive = true;
+                this.isRecording = false;
+                this.mediaRecorder = null;
+                this.audioChunks = [];
                 
                 this.globalStep = 0;
                 this.masterClockInterval = null;
@@ -416,9 +466,15 @@
             setupUI() {
                 const grid = document.getElementById('instrumentsGrid');
                 Object.keys(this.instrumentConfigs).forEach(key => {
+                    const config = this.instrumentConfigs[key];
                     const container = document.createElement('div');
                     container.className = 'instrument-container';
-                    container.innerHTML = `<button class="btn instrument" data-instrument="${key}">${this.instrumentConfigs[key].name}</button>`;
+                    container.innerHTML = `
+                        <div class="instrument-button-wrapper">
+                            <button class="btn instrument-btn" data-instrument="${key}">${config.name}</button>
+                            <button class="btn edit-btn" data-instrument="${key}">✏️</button>
+                        </div>
+                    `;
                     grid.appendChild(container);
                 });
             }
@@ -427,7 +483,11 @@
                 if (!this.audioContext || this.audioContext.state === 'closed') {
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     this.masterGainNode = this.audioContext.createGain();
+
+                    this.mediaStreamDestination = this.audioContext.createMediaStreamDestination();
                     this.masterGainNode.connect(this.audioContext.destination);
+                    this.masterGainNode.connect(this.mediaStreamDestination);
+                    
                     this.masterGainNode.gain.value = 0.3;
                 }
                 if (this.audioContext.state === 'suspended') {
@@ -455,20 +515,11 @@
                 document.querySelectorAll('.instrument-container').forEach(c => c.classList.remove('editing'));
                 document.querySelector(`[data-instrument="${instrumentName}"]`).closest('.instrument-container').classList.add('editing');
                 
-                let octaveOptions = '';
-                if(instrumentName !== 'drums') {
-                    for (let i = 1; i <= 5; i++) {
-                        const selected = i === defaultConfig.defaultOctave ? 'selected' : '';
-                        octaveOptions += `<option value="${i}" ${selected}>${i}</option>`;
-                    }
-                }
-
                 content.innerHTML = `
                     <h3>Editing: ${defaultConfig.name}</h3>
                     <div class="midi-controls">
                         <label>Length:</label>
                         <select id="length-${instrumentName}"><option value="32">32</option><option value="64" selected>64</option></select>
-                        ${instrumentName !== 'drums' ? `<label>Octave:</label><select id="octave-${instrumentName}">${octaveOptions}</select>` : ''}
                         <label>Volume:</label>
                         <input type="range" id="volume-${instrumentName}" min="0" max="1" step="0.01" value="0.5">
                     </div>
@@ -482,9 +533,6 @@
                 panel.classList.add('visible');
                 document.getElementById('mainContent').classList.add('editor-visible');
                 document.getElementById(`length-${instrumentName}`).addEventListener('change', () => this.createPianoRoll(instrumentName));
-                if (document.getElementById(`octave-${instrumentName}`)) {
-                    document.getElementById(`octave-${instrumentName}`).addEventListener('change', () => this.createPianoRoll(instrumentName));
-                }
             }
 
             closeMidiEditor() {
@@ -503,10 +551,9 @@
                 const patternLength = parseInt(document.getElementById(`length-${instrumentName}`)?.value) || 64;
                 const isDrums = instrumentName === 'drums';
                 
-                const defaultOctave = this.instrumentConfigs[instrumentName].defaultOctave || 4;
                 const notes = isDrums 
                     ? ['Hi-Hat', 'Snare', 'Kick'] 
-                    : this.getHarmonicFieldNotes(parseInt(document.getElementById(`octave-${instrumentName}`)?.value) || defaultOctave, instrumentName);
+                    : this.getFullPianoRangeNotes();
 
                 let keysHtml = '<div class="piano-keys">';
                 notes.forEach(noteName => {
@@ -529,10 +576,12 @@
 
                 rollContainer.innerHTML = keysHtml + gridHtml;
 
+
                 if (!this.midiEditors[instrumentName] || this.midiEditors[instrumentName].patternLength !== patternLength) {
                      this.midiEditors[instrumentName] = this.generatePatternData(instrumentName, patternLength);
                 }
                 this.updatePianoRollVisuals(instrumentName);
+                
                 rollContainer.querySelectorAll('.note-cell').forEach(cell => {
                     cell.addEventListener('click', (e) => {
                         this.toggleNote(instrumentName, e.target.dataset.note, parseInt(e.target.dataset.beat));
@@ -622,6 +671,15 @@
                 return { pattern, patternLength };
             }
 
+            getFullPianoRangeNotes(){
+                let allNotes = [];
+                 for (let oct = 7; oct >= 0; oct--) {
+                    const noteOrder = ['B', 'A#', 'A', 'G#', 'G', 'F#', 'F', 'E', 'D#', 'D', 'C#', 'C'];
+                    noteOrder.forEach(n => allNotes.push(`${n}${oct}`));
+                }
+                return allNotes;
+            }
+
             getHarmonicFieldNotes(startOctave, instrumentName) {
                 let allNotes = [];
                 const isBass = instrumentName === 'bass' || instrumentName === 'bass2';
@@ -663,7 +721,8 @@
 
             createArpeggio(instrumentName) {
                 this.clearPattern(instrumentName);
-                const scaleNotes = this.getHarmonicFieldNotes(parseInt(document.getElementById(`octave-${instrumentName}`).value), instrumentName).reverse();
+                const config = this.instrumentConfigs[instrumentName];
+                const scaleNotes = this.getHarmonicFieldNotes(config.defaultOctave, instrumentName).reverse();
                 const arpeggioPattern = [...scaleNotes, ...scaleNotes.slice(1, -1).reverse()];
                 for (let beat = 0; beat < 16; beat++) {
                     this.toggleNote(instrumentName, arpeggioPattern[beat % arpeggioPattern.length], beat);
@@ -709,14 +768,13 @@
 
             async toggleInstrument(instrumentName) {
                 await this.initAudio();
-                const button = document.querySelector(`[data-instrument="${instrumentName}"]`);
+                const button = document.querySelector(`[data-instrument="${instrumentName}"].instrument-btn`);
                 const isActivating = !this.instruments[instrumentName];
 
                 if (isActivating) {
                     const nextMeasureStart = Math.ceil(this.globalStep / 16) * 16;
                     this.instruments[instrumentName] = { startStep: nextMeasureStart };
                     button.classList.add('active');
-                    this.openMidiEditor(instrumentName);
                     if (!this.isPlaying) {
                         this.togglePlayback(true);
                     }
@@ -890,11 +948,110 @@
                 this.updateStatus();
             }
 
+            async toggleRecording() {
+                await this.initAudio();
+                const recordBtn = document.getElementById('recordBtn');
+
+                if (this.isRecording) {
+                    // Stop
+                    this.mediaRecorder.stop();
+                    this.isRecording = false;
+                    recordBtn.textContent = '🔴 Record';
+                    recordBtn.classList.remove('recording');
+                } else {
+                    // Start
+                    this.isRecording = true;
+                    this.audioChunks = [];
+                    this.mediaRecorder = new MediaRecorder(this.mediaStreamDestination.stream);
+                    
+                    this.mediaRecorder.ondataavailable = event => {
+                        this.audioChunks.push(event.data);
+                    };
+
+                    this.mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.onload = async () => {
+                            const arrayBuffer = reader.result;
+                            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                            const wavBlob = this.bufferToWav(audioBuffer);
+                            
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = URL.createObjectURL(wavBlob);
+                            a.download = 'sicspace-loop.wav';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        };
+                        reader.readAsArrayBuffer(audioBlob);
+                    };
+                    
+                    this.mediaRecorder.start();
+                    recordBtn.textContent = '⏹ Stop Recording';
+                    recordBtn.classList.add('recording');
+                }
+            }
+            
+            bufferToWav(buffer) {
+                const numChannels = buffer.numberOfChannels;
+                const sampleRate = buffer.sampleRate;
+                const format = 1; // PCM
+                const bitDepth = 16;
+                const numSamples = buffer.length;
+
+                const dataSize = numSamples * numChannels * (bitDepth / 8);
+                const fileSize = 44 + dataSize;
+
+                const wavBuffer = new ArrayBuffer(fileSize);
+                const view = new DataView(wavBuffer);
+
+                let offset = 0;
+
+                // Helper function to write strings
+                function writeString(view, offset, string) {
+                    for (let i = 0; i < string.length; i++) {
+                        view.setUint8(offset + i, string.charCodeAt(i));
+                    }
+                }
+
+                writeString(view, offset, 'RIFF'); offset += 4;
+                view.setUint32(offset, fileSize - 8, true); offset += 4;
+                writeString(view, offset, 'WAVE'); offset += 4;
+                writeString(view, offset, 'fmt '); offset += 4;
+                view.setUint32(offset, 16, true); offset += 4;
+                view.setUint16(offset, format, true); offset += 2;
+                view.setUint16(offset, numChannels, true); offset += 2;
+                view.setUint32(offset, sampleRate, true); offset += 4;
+                view.setUint32(offset, sampleRate * numChannels * (bitDepth / 8), true); offset += 4;
+                view.setUint16(offset, numChannels * (bitDepth / 8), true); offset += 2;
+                view.setUint16(offset, bitDepth, true); offset += 2;
+                writeString(view, offset, 'data'); offset += 4;
+                view.setUint32(offset, dataSize, true); offset += 4;
+
+                const pcm = new Int16Array(numSamples * numChannels);
+                let sampleIndex = 0;
+                for (let i = 0; i < numSamples; i++) {
+                    for (let channel = 0; channel < numChannels; channel++) {
+                        let sample = buffer.getChannelData(channel)[i];
+                        sample = Math.max(-1, Math.min(1, sample)); // Clamp
+                        pcm[sampleIndex++] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    }
+                }
+
+                for (let i = 0; i < pcm.length; i++, offset += 2) {
+                    view.setInt16(offset, pcm[i], true);
+                }
+
+                return new Blob([view], { type: 'audio/wav' });
+            }
+
+
             stopAllInstruments(closeEditor = true) {
                 this.instruments = {}; this.isPlaying = false;
                 this.globalStep = 0;
                 this.stopMasterClock();
-                document.querySelectorAll('.instrument').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.instrument-btn').forEach(b => b.classList.remove('active'));
                 document.getElementById('playPauseBtn').textContent = '▶ Play';
                 document.getElementById('playPauseBtn').classList.remove('active');
                 if (closeEditor) this.closeMidiEditor();
@@ -914,10 +1071,17 @@
             setupEventListeners() {
                 document.getElementById('playPauseBtn').addEventListener('click', () => this.togglePlayback());
                 document.getElementById('stopBtn').addEventListener('click', () => this.stopAllInstruments());
+                document.getElementById('recordBtn').addEventListener('click', () => this.toggleRecording());
                 document.getElementById('closeEditorBtn').addEventListener('click', () => this.closeMidiEditor());
-                document.querySelectorAll('.instrument').forEach(button => {
+                
+                document.querySelectorAll('.instrument-btn').forEach(button => {
                     button.addEventListener('click', () => { this.toggleInstrument(button.dataset.instrument); });
                 });
+                
+                document.querySelectorAll('.edit-btn').forEach(button => {
+                    button.addEventListener('click', () => { this.openMidiEditor(button.dataset.instrument); });
+                });
+
                 document.addEventListener('visibilitychange', () => {
                     this.isTabActive = !document.hidden;
                 });
