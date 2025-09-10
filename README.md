@@ -23,9 +23,10 @@ Simplicity is at the core of SoundLoop. To create your music, just follow these 
 1.  **Check the Settings:** At the top, you will see the current settings for your track, such as the **BPM** (beats per minute) and the **Key** (e.g., F# minor). All music will be generated within these parameters.
 2.  **Add an Instrument:** Simply click on one of the available instruments (like Piano, Guitar, Drums, etc.) to add it to the loop.
 3.  **Build Your Orchestra:** Add as many instruments as you like. Each one will contribute a new sonic layer, making the music richer and more complex.
-4.  **Control Playback:** Use the **Play** and **Stop** buttons to start or halt the music at any time.
-5.  **Like It? Record It!** The **Record** button allows you to capture your creation.
-6.  **Start Over:** Want to try a new combination? The **New Loop** button clears the current selection, giving you a blank canvas for your next masterpiece.
+4.  **Wanna Change Something?** You can edit with the ✏️ icon to taylor the melody of any instrument to your liking.
+5.  **Control Playback:** Use the **Play** and **Stop** buttons to start or halt the music at any time.
+6.  **Like It? Record It!** The **Record** button allows you to capture your creation.
+7.  **Start Over:** Want to try a new combination? The **New Loop** button clears the current selection, giving you a blank canvas for your next masterpiece.
 
 ## Core Features
 
