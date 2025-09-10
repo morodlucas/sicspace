@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SoundLoop</title>
-     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" xintegrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <style>
         body {
             margin: 0;
@@ -66,9 +66,9 @@
         }
         
         .header-logo {
-             max-width: 600px; /* Tamanho máximo da logo */
-             width: 50%;      /* Responsividade básica */
-             height: auto;
+              max-width: 600px; /* Tamanho máximo da logo */
+              width: 50%;     /* Responsividade básica */
+              height: auto;
         }
 
         .subtitle {
@@ -180,7 +180,7 @@
         }
         
         .btn.instrument-btn.active {
-             background: rgba(100, 200, 255, 0.25);
+            background: rgba(100, 200, 255, 0.25);
             border-color: rgba(100, 200, 255, 0.6);
             box-shadow: 0 0 15px rgba(100, 200, 255, 0.3);
         }
@@ -341,9 +341,9 @@
             max-width: 800px; margin-left: auto; margin-right: auto;
         }
         .disclaimer {
-             font-style: italic;
-             font-size: 0.75rem;
-             margin-top: 1rem;
+              font-style: italic;
+              font-size: 0.75rem;
+              margin-top: 1rem;
         }
 
         @media (max-width: 768px) {
@@ -367,7 +367,7 @@
             .title-custom {
                 font-size: 2rem;
             }
-             .header-logo {
+              .header-logo {
                 max-width: 100px;
             }
 
@@ -382,6 +382,63 @@
             .instruments-grid {
                 grid-template-columns: 1fr;
             }
+        }
+        
+        /* --- ESTILOS DO EASTER EGG --- */
+        #easter-egg-trigger {
+            position: fixed;
+            bottom: 0;
+            left: 0; /* <-- ALTERADO AQUI */
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            z-index: 999;
+            /* Deixe invisível, mas clicável */
+            opacity: 0; 
+        }
+
+        #easter-egg-modal {
+            display: none; /* Começa escondido */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #easter-egg-modal.show {
+            display: flex; /* Muda para flex para centralizar o conteúdo */
+        }
+
+        .modal-content {
+            position: relative;
+            padding: 20px;
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        #easter-egg-gif {
+            width: 100%;
+            height: auto;
+            max-width: 80vw; /* 80% da largura da tela */
+            max-height: 80vh; /* 80% da altura da tela */
+            object-fit: contain; /* Garante que o gif inteiro apareça */
+        }
+        
+        #close-gif-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            font-size: 2rem;
+            color: white;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            text-shadow: 0 0 5px black;
         }
     </style>
 </head>
@@ -424,6 +481,14 @@
             <h3>Select an active instrument to edit its pattern.</h3>
         </div>
     </div>
+    
+    <div id="easter-egg-trigger"></div>
+    <div id="easter-egg-modal">
+        <div class="modal-content">
+            <button id="close-gif-btn">&times;</button>
+            <img id="easter-egg-gif" src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExYTdmbHc0ZGo2NnZ6ejJ0eWE1ODI4bW83aXVsMWQxczNicWY5MHd1ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/bq0yD6VSdcYwqroFaF/giphy.gif" alt="Easter Egg GIF">
+        </div>
+    </div>
 
 
     <script>
@@ -449,13 +514,13 @@
                 
                 this.instrumentConfigs = {
                     piano:   { name: '🎹 Piano',       synthType: 'triangle', duration: 0.8, isChord: false, color: '#dda0dd', defaultOctave: 4 },
-                    synth:   { name: '🎹 Synthesizer',  synthType: 'sawtooth', duration: 1,   isChord: false, color: '#45b7d1', defaultOctave: 4 },
-                    guitar:  { name: '🎸 Guitar',      synthType: 'triangle', duration: 0.6, isChord: false, color: '#ff6b6b', defaultOctave: 4 },
-                    bass:    { name: '🎯 Bass',        synthType: 'sine',     duration: 0.8, isChord: false, color: '#4ecdc4', defaultOctave: 2 },
-                    bass2:   { name: '🎻 Bass 2',      synthType: 'sawtooth', duration: 1.5, isChord: false, color: '#ffa07a', defaultOctave: 2 },
-                    choir:   { name: '👥 Choir',        synthType: 'sine',     duration: 2,   isChord: true,  color: '#f4a6d7', defaultOctave: 4 },
+                    synth:   { name: '🎹 Synthesizer',   synthType: 'sawtooth', duration: 1,   isChord: false, color: '#45b7d1', defaultOctave: 4 },
+                    guitar:  { name: '🎸 Guitar',       synthType: 'triangle', duration: 0.6, isChord: false, color: '#ff6b6b', defaultOctave: 4 },
+                    bass:    { name: '🎯 Bass',         synthType: 'sine',     duration: 0.8, isChord: false, color: '#4ecdc4', defaultOctave: 2 },
+                    bass2:   { name: '🎻 Bass 2',       synthType: 'sawtooth', duration: 1.5, isChord: false, color: '#ffa07a', defaultOctave: 2 },
+                    choir:   { name: '👥 Choir',         synthType: 'sine',     duration: 2,   isChord: true,  color: '#f4a6d7', defaultOctave: 4 },
                     flute:   { name: '🪈 Flute',       synthType: 'sine',     duration: 1,   isChord: false, color: '#96ceb4', defaultOctave: 5 },
-                    drums:   { name: '🥁 Drums',                                                             color: '#ffd700' },
+                    drums:   { name: '🥁 Drums',                                                              color: '#ffd700' },
                 };
 
                 this.setupUI();
@@ -640,9 +705,9 @@
                         if (beat % 4 === 0) pattern[beat]['Kick'] = true;
                         
                         if (beat % 8 === 4) {
-                             pattern[beat]['Snare'] = true;
+                            pattern[beat]['Snare'] = true;
                         } else if (isLastMeasure && beat % 2 === 1 && Math.random() < 0.25) { // Fill variation
-                             pattern[beat]['Snare'] = true;
+                            pattern[beat]['Snare'] = true;
                         }
 
                         if (isLastMeasure && Math.random() < 0.9) {
@@ -1089,8 +1154,35 @@
         }
 
         let musicGen;
-        window.addEventListener('load', () => { musicGen = new ProceduralMusicGenerator(); });
+        window.addEventListener('load', () => { 
+            musicGen = new ProceduralMusicGenerator(); 
+
+            // --- LÓGICA DO EASTER EGG ---
+            const trigger = document.getElementById('easter-egg-trigger');
+            const modal = document.getElementById('easter-egg-modal');
+            const closeBtn = document.getElementById('close-gif-btn');
+            
+            // Função para mostrar o modal
+            const showModal = () => {
+                modal.classList.add('show');
+            };
+
+            // Função para esconder o modal
+            const hideModal = () => {
+                modal.classList.remove('show');
+            };
+
+            // Eventos de clique
+            trigger.addEventListener('click', showModal);
+            closeBtn.addEventListener('click', hideModal);
+            
+            // Clicar fora do GIF (no fundo escuro) também fecha
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    hideModal();
+                }
+            });
+        });
     </script>
 </body>
 </html>
-
