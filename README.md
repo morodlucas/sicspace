@@ -6,7 +6,7 @@
 
 SoundLoop is a procedural music generator designed to be a musical toy. The goal is not to be a complex production tool, but rather a fun and intuitive platform for creating simple, enjoyable musical loops.
 
-![SoundLoop User Interface](https://i.imgur.com/gK9J6vV.jpg)
+![SoundLoop User Interface](images/frontpage.png)
 
 ---
 
